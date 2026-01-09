@@ -20,9 +20,31 @@
         maplibregl.addProtocol("pmtiles", protocol.tile);
 
         // 2. 지도 초기화
-        const map = new maplibregl.Map({
-            container: 'map',
-            style: 'https://demotiles.maplibre.org/style.json', // 기본 배경지도
+const map = new maplibregl.Map({
+    container: 'map',
+    // OSM 표준 래스터 타일 스타일 설정
+    style: {
+        "version": 8,
+        "sources": {
+            "osm-raster-tiles": {
+                "type": "raster",
+                "tiles": [
+                    "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                ],
+                "tileSize": 256,
+                "attribution": "&copy; OpenStreetMap contributors"
+            }
+        },
+        "layers": [
+            {
+                "id": "osm-raster-layer",
+                "type": "raster",
+                "source": "osm-raster-tiles",
+                "minzoom": 0,
+                "maxzoom": 19
+            }
+        ]
+    },
             center: [127, 37.5], // 시작 위치 [경도, 위도]
             zoom: 10
         });
@@ -49,4 +71,5 @@
         });
     </script>
 </body>
+
 </html>
