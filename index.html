@@ -55,7 +55,35 @@ const map = new maplibregl.Map({
                 type: 'vector',
                 url: 'pmtiles://my_map.pmtiles' // 업로드한 파일 이름
             });
+            
+map.on('click', 'my-layer', (e) => {
+    // 클릭한 지점의 속성(Properties) 가져오기
+    const properties = e.features[0].properties;
 
+    // 팝업에 표시할 내용 구성 (HTML 형식)
+    // 'NAME', 'ID' 등은 실제 데이터의 속성 키값으로 수정하세요.
+    let popupContent = `<div style="padding:10px;">`;
+    popupContent += `<h3>상세 정보</h3>`;
+    
+    for (const key in properties) {
+        popupContent += `<strong>${key}:</strong> ${properties[key]}<br>`;
+    }
+    popupContent += `</div>`;
+
+    // 팝업 생성 및 표시
+    new maplibregl.Popup()
+        .setLngLat(e.lngLat) // 클릭한 위치에
+        .setHTML(popupContent) // 내용을 담아서
+        .addTo(map); // 지도에 추가
+});
+
+// 마우스를 올렸을 때 커서 모양 변경 (선택 사항)
+map.on('mouseenter', 'my-layer', () => {
+    map.getCanvas().style.cursor = 'pointer';
+});
+map.on('mouseleave', 'my-layer', () => {
+    map.getCanvas().style.cursor = '';
+});
             // 4. 지도 레이어 그리기
             map.addLayer({
                 'id': 'my-layer',
@@ -73,4 +101,5 @@ const map = new maplibregl.Map({
 </body>
 
 </html>
+
 
