@@ -91,15 +91,24 @@ map.on('mouseleave', 'my-layer', () => {
                 'source-layer': 'input', // tippecanoe 실행 시 사용한 파일 이름(확장자 제외)
                 'type': 'fill', // 점은 circle, 선은 line
                 'paint': {
-                    'fill-color': '#ff3300',
-                    'fill-opacity': 0.6,
-                    'fill-outline-color': 'white'
-                }
+                  'fill-color': [
+                   'match',
+                        ['get', '종목코드'], // 1. 속성 정보에서 '종목코드' 값을 가져옴
+                         '11', '#ff0000',  // 2. 값이 'A001'이면 빨간색
+                         '12', '#00ff00',  // 3. 값이 'A002'이면 초록색
+                         '13', '#0000ff',  // 4. 값이 'A003'이면 파란색
+                        '#888888'           // 5. 위 조건에 없는 나머지 값들의 기본색(회색)
+                        ],            
+                  'fill-opacity': 0.7,
+                  'fill-outline-color': '#ffffff'
+    }
+
             });
         });
     </script>
 </body>
 
 </html>
+
 
 
