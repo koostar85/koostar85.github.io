@@ -38,8 +38,14 @@
     align-items: center;
     font-size: 12px;
     color: #333;
+   cursor: pointer; /* 마우스 커서를 손가락 모양으로 */
+    transition: background 0.2s;
+    padding: 2px 5px;
+    border-radius: 4px;    
 }
-
+.legend-item:hover {
+    background: rgba(0, 0, 0, 0.05); /* 마우스 올리면 살짝 어둡게 */
+}
 .legend-item span {
     width: 18px;
     height: 18px;
@@ -53,14 +59,16 @@
     <div id="map"></div>
     <div id="legend" style="position: absolute; bottom: 30px; left: 10px; z-index: 1; background: white; padding: 10px; border-radius: 5px; line-height: 1.5; box-shadow: 0 0 15px rgba(0,0,0,0.2);">
     <h4 style="margin-top:0">국가유산 범례</h4>
-    <h4>종목 구분</h4>
-       <div class="legend-item"><span style="background:#e6194b;"></span> 국보 (11)</div>
-       <div class="legend-item"><span style="background:#3cb44b;"></span> 보물 (12)</div>
-       <div class="legend-item"><span style="background:#ffe119;"></span> 사적 (13)</div>
-       <div class="legend-item"><span style="background:#4363d8;"></span> 사적및명승 (14)</div>
-       <div class="legend-item"><span style="background:#f58231;"></span> 명승 (15)</div>
-       <div class="legend-item"><span style="background:#911eb4;"></span> 천연기념물 (16)</div>
-       <div class="legend-item"><span style="background:#888888;"></span> 국가민속문화유산 (18)</div>        
+    <h4>국가유산 종류</h4>
+       <div class="legend-item" onclick="filterMap(11)"><span style="background:#e6194b;"></span> 국보 (11)</div>
+       <div class="legend-item" onclick="filterMap(12)"><span style="background:#3cb44b;"></span> 보물 (12)</div>
+       <div class="legend-item" onclick="filterMap(13)"><span style="background:#ffe119;"></span> 사적 (13)</div>
+       <div class="legend-item" onclick="filterMap(14)"><span style="background:#4363d8;"></span> 사적및명승 (14)</div>
+       <div class="legend-item" onclick="filterMap(15)"><span style="background:#f58231;"></span> 명승 (15)</div>
+       <div class="legend-item" onclick="filterMap(16)"><span style="background:#911eb4;"></span> 천연기념물 (16)</div>
+       <div class="legend-item" onclick="filterMap(18)"><span style="background:#888888;"></span> 국가민속문화유산 (18)</div>
+       <HR>
+       <div class="legend-item" onclick="filterMap('all')" style="cursor:pointer; font-weight:bold;">모두 보기</div>
     </div>
 
     
@@ -106,6 +114,16 @@ const map = new maplibregl.Map({
                 url: 'pmtiles://my_map.pmtiles' // 업로드한 파일 이름
             });
             
+ function filterMap(code) {
+    if (code === 'all') {
+        // 모든 데이터 표시 (필터 해제)
+        map.setFilter('my-layer', null);
+    } else {
+        // 클릭한 종목코드와 일치하는 데이터만 표시
+        // ['==', ['get', '속성명'], 비교값] 형식입니다.
+        map.setFilter('my-layer', ['==', ['get', '종목코드'], code]);
+    }
+}           
 map.on('click', 'my-layer', (e) => {
     // 클릭한 지점의 속성(Properties) 가져오기
     const properties = e.features[0].properties;
@@ -159,10 +177,13 @@ map.on('mouseleave', 'my-layer', () => {
 
             });
         });
+
+        
     </script>
 </body>
 
 </html>
+
 
 
 
