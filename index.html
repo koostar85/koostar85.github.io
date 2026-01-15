@@ -51,7 +51,8 @@
 </head>
 <body>
     <div id="map"></div>
-    <div id="legend">
+    <div id="legend" style="position: absolute; bottom: 30px; left: 10px; z-index: 1; background: white; padding: 10px; border-radius: 5px; line-height: 1.5; box-shadow: 0 0 15px rgba(0,0,0,0.2);">
+    <h4 style="margin-top:0">국가유산 범례</h4>
     <h4>종목 구분</h4>
        <div class="legend-item"><span style="background:#e6194b;"></span> 국보 (11)</div>
        <div class="legend-item"><span style="background:#3cb44b;"></span> 보물 (12)</div>
@@ -162,6 +163,7 @@ map.on('mouseleave', 'my-layer', () => {
 </body>
 
 </html>
+
 
 
 
