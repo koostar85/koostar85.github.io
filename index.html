@@ -106,14 +106,7 @@ const map = new maplibregl.Map({
             center: [127, 37.5], // 시작 위치 [경도, 위도]
             zoom: 10
         });
-
-        map.on('load', () => {
-            // 3. 내 데이터 소스 추가
-            map.addSource('my-data', {
-                type: 'vector',
-                url: 'pmtiles://my_map.pmtiles' // 업로드한 파일 이름
-            });
-            
+        
  function filterMap(code) {
     if (code === 'all') {
         // 모든 데이터 표시 (필터 해제)
@@ -123,7 +116,15 @@ const map = new maplibregl.Map({
         // ['==', ['get', '속성명'], 비교값] 형식입니다.
         map.setFilter('my-layer', ['==', ['get', '종목코드'], code]);
     }
-}           
+}  
+        map.on('load', () => {
+            // 3. 내 데이터 소스 추가
+            map.addSource('my-data', {
+                type: 'vector',
+                url: 'pmtiles://my_map.pmtiles' // 업로드한 파일 이름
+            });
+            
+         
 map.on('click', 'my-layer', (e) => {
     // 클릭한 지점의 속성(Properties) 가져오기
     const properties = e.features[0].properties;
@@ -183,6 +184,7 @@ map.on('mouseleave', 'my-layer', () => {
 </body>
 
 </html>
+
 
 
 
