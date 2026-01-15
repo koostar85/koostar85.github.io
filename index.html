@@ -10,6 +10,43 @@
     <style>
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        /* 범례 전체 박스 스타일 */
+#legend {
+    position: absolute;
+    bottom: 30px; /* 바닥에서 30px 띄움 */
+    left: 10px;   /* 왼쪽에서 10px 띄움 */
+    z-index: 100; /* 지도보다 위에 표시 */
+    background: rgba(255, 255, 255, 0.9); /* 살짝 투명한 흰색 */
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+    font-family: sans-serif;
+    line-height: 1.8;
+    min-width: 120px;
+}
+
+#legend h4 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 5px;
+}
+
+/* 범례 아이템(색상 상자 + 텍스트) 스타일 */
+.legend-item {
+    display: flex;
+    align-items: center;
+    font-size: 12px;
+    color: #333;
+}
+
+.legend-item span {
+    width: 18px;
+    height: 18px;
+    margin-right: 10px;
+    border-radius: 3px; /* 살짝 둥근 사각형 */
+    border: 1px solid rgba(0,0,0,0.1);
+}
     </style>
 </head>
 <body>
@@ -125,6 +162,7 @@ map.on('mouseleave', 'my-layer', () => {
 </body>
 
 </html>
+
 
 
 
