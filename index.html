@@ -14,6 +14,18 @@
 </head>
 <body>
     <div id="map"></div>
+    <div id="legend">
+    <h4>종목 구분</h4>
+       <div class="legend-item"><span style="background:#e6194b;"></span> 국보 (11)</div>
+       <div class="legend-item"><span style="background:#3cb44b;"></span> 보물 (12)</div>
+       <div class="legend-item"><span style="background:#ffe119;"></span> 사적 (13)</div>
+       <div class="legend-item"><span style="background:#4363d8;"></span> 사적및명승 (14)</div>
+       <div class="legend-item"><span style="background:#f58231;"></span> 명승 (15)</div>
+       <div class="legend-item"><span style="background:#911eb4;"></span> 천연기념물 (16)</div>
+       <div class="legend-item"><span style="background:#911eb4;"></span> 국가민속문화유산 (18)</div>        
+    </div>
+
+    
     <script>
         // 1. PMTiles 프로토콜 설정
         let protocol = new pmtiles.Protocol();
@@ -100,7 +112,8 @@ map.on('mouseleave', 'my-layer', () => {
                           '14', '#4363d8', // 파랑
                           '15', '#f58231', // 주황
                           '16', '#911eb4',  //보라
-                              '#888888'           // 5. 위 조건에 없는 나머지 값들의 기본색(회색)
+                          '18', '#888888', //회색
+                              '#eeeeee'           // 5. 위 조건에 없는 나머지 값들의 기본색(흰색)
                         ],            
                   'fill-opacity': 0.7,
                   'fill-outline-color': '#ffffff'
@@ -112,6 +125,7 @@ map.on('mouseleave', 'my-layer', () => {
 </body>
 
 </html>
+
 
 
 
