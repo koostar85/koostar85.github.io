@@ -107,16 +107,7 @@ const map = new maplibregl.Map({
             zoom: 10
         });
         
- function filterMap(code) {
-    if (code === 'all') {
-        // 모든 데이터 표시 (필터 해제)
-        map.setFilter('my-layer', null);
-    } else {
-        // 클릭한 종목코드와 일치하는 데이터만 표시
-        // ['==', ['get', '속성명'], 비교값] 형식입니다.
-        map.setFilter('my-layer', ['==', ['get', '종목코드'], code]);
-    }
-}  
+
         map.on('load', () => {
             // 3. 내 데이터 소스 추가
             map.addSource('my-data', {
@@ -179,11 +170,21 @@ map.on('mouseleave', 'my-layer', () => {
             });
         });
 
-        
+         function filterMap(code) {
+    if (code === 'all') {
+        // 모든 데이터 표시 (필터 해제)
+        map.setFilter('my-layer', null);
+    } else {
+        // 클릭한 종목코드와 일치하는 데이터만 표시
+        // ['==', ['get', '속성명'], 비교값] 형식입니다.
+        map.setFilter('my-layer', ['==', ['get', '종목코드'], code]);
+    }
+}  
     </script>
 </body>
 
 </html>
+
 
 
 
