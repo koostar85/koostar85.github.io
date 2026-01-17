@@ -194,13 +194,13 @@ function updateFilter() {
     // 체크된 코드들만 모으는 배열
     const enabledCodes = [];
     
-    if (document.getElementById('chk-11').checked) enabledCodes.push(11);
-    if (document.getElementById('chk-12').checked) enabledCodes.push(12);
-    if (document.getElementById('chk-13').checked) enabledCodes.push(13);
-    if (document.getElementById('chk-14').checked) enabledCodes.push(14);
-    if (document.getElementById('chk-15').checked) enabledCodes.push(15);
-    if (document.getElementById('chk-16').checked) enabledCodes.push(16);
-    if (document.getElementById('chk-18').checked) enabledCodes.push(18);
+    if (document.getElementById('chk-11').checked) enabledCodes.push('11');
+    if (document.getElementById('chk-12').checked) enabledCodes.push('12');
+    if (document.getElementById('chk-13').checked) enabledCodes.push('13');
+    if (document.getElementById('chk-14').checked) enabledCodes.push('14');
+    if (document.getElementById('chk-15').checked) enabledCodes.push('15');
+    if (document.getElementById('chk-16').checked) enabledCodes.push('16');
+    if (document.getElementById('chk-18').checked) enabledCodes.push('18');
     if (enabledCodes.length === 0) {
         // 아무것도 체크 안 된 경우 아무것도 안 보여줌
         map.setFilter('my-layer', ['==', ['get', '종목코드'], 'none']);
@@ -213,6 +213,7 @@ function updateFilter() {
 </body>
 
 </html>
+
 
 
 
