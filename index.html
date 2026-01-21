@@ -156,137 +156,70 @@
 
     
     <script>
-        // 1. PMTiles 프로토콜 설정
-        let protocol = new pmtiles.Protocol();
-        maplibregl.addProtocol("pmtiles", protocol.tile);
+// 1. PMTiles 프로토콜 등록
+    let protocol = new pmtiles.Protocol();
+    maplibregl.addProtocol("pmtiles", protocol.tile);
 
-        // 2. 지도 초기화
-const map = new maplibregl.Map({
-    container: 'map',
-    // OSM 표준 래스터 타일 스타일 설정
-    style: {
-        "version": 8,
-        "sources": {
-            "osm-raster-tiles": {
-                "type": "raster",
-                "tiles": [
-                    "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                ],
-                "tileSize": 256,
-                "attribution": "&copy; OpenStreetMap contributors"
-            }
+    // 2. 지도 생성
+    const map = new maplibregl.Map({
+        container: 'map',
+        style: {
+            "version": 8,
+            "sources": {
+                "osm": {
+                    "type": "raster",
+                    "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+                    "tileSize": 256,
+                    "attribution": "&copy; OpenStreetMap"
+                }
+            },
+            "layers": [{"id": "osm-layer", "type": "raster", "source": "osm"}]
         },
-        "layers": [
-            {
-                "id": "osm-raster-layer",
-                "type": "raster",
-                "source": "osm-raster-tiles",
-                "minzoom": 0,
-                "maxzoom": 19
-            }
-        ]
-    },
-            center: [127, 37.5], // 시작 위치 [경도, 위도]
-            zoom: 10
-        });
-        
-
-        map.on('load', () => {
-            // 3. 내 데이터 소스 추가
-            map.addSource('my-data', {
-                type: 'vector',
-                url: 'pmtiles://my_map.pmtiles' // 업로드한 파일 이름
-            });
-            
-         
-map.on('click', 'my-layer', (e) => {
-    // 클릭한 지점의 속성(Properties) 가져오기
-    const properties = e.features[0].properties;
-
-    // 팝업에 표시할 내용 구성 (HTML 형식)
-    // 'NAME', 'ID' 등은 실제 데이터의 속성 키값으로 수정하세요.
-    let popupContent = `<div style="padding:10px;">`;
-    popupContent += `<h3>상세 정보</h3>`;
-    
-    for (const key in properties) {
-        popupContent += `<strong>${key}:</strong> ${properties[key]}<br>`;
-    }
-    popupContent += `</div>`;
-
-    // 팝업 생성 및 표시
-    new maplibregl.Popup()
-        .setLngLat(e.lngLat) // 클릭한 위치에
-        .setHTML(popupContent) // 내용을 담아서
-        .addTo(map); // 지도에 추가
-});
-
-// 마우스를 올렸을 때 커서 모양 변경 (선택 사항)
-map.on('mouseenter', 'my-layer', () => {
-    map.getCanvas().style.cursor = 'pointer';
-});
-map.on('mouseleave', 'my-layer', () => {
-    map.getCanvas().style.cursor = '';
-});
-            // 4. 지도 레이어 그리기
-            map.addLayer({
-                'id': 'my-layer',
-                'source': 'my-data',
-                'source-layer': 'input', // tippecanoe 실행 시 사용한 파일 이름(확장자 제외)
-                'type': 'fill', // 점은 circle, 선은 line
-                'paint': {
-                  'fill-color': [
-                   'match',
-                        ['get', '종목코드'], // 1. 속성 정보에서 '종목코드' 값을 가져옴                   
-                          '11', '#e6194b', // 빨강
-                          '12', '#3cb44b', // 초록
-                          '13', '#ffe119', // 노랑
-                          '14', '#4363d8', // 파랑
-                          '15', '#f58231', // 주황
-                          '16', '#911eb4',  //보라
-                          '18', '#888888', //회색
-                              '#eeeeee'           // 5. 위 조건에 없는 나머지 값들의 기본색(흰색)
-                        ],            
-                  'fill-opacity': 0.7,
-                  'fill-outline-color': '#ffffff'
-    }
-
-            });
-        });
-
-function updateFilter() {
-    // 체크된 코드들만 모으는 배열
-    const enabledCodes = [];
-    
-    if (document.getElementById('chk-11').checked) enabledCodes.push('11');
-    if (document.getElementById('chk-12').checked) enabledCodes.push('12');
-    if (document.getElementById('chk-13').checked) enabledCodes.push('13');
-    if (document.getElementById('chk-14').checked) enabledCodes.push('14');
-    if (document.getElementById('chk-15').checked) enabledCodes.push('15');
-    if (document.getElementById('chk-16').checked) enabledCodes.push('16');
-    if (document.getElementById('chk-18').checked) enabledCodes.push('18');
-    if (enabledCodes.length === 0) {
-        // 아무것도 체크 안 된 경우 아무것도 안 보여줌
-        map.setFilter('my-layer', ['==', ['get', '종목코드'], 'none']);
-    } else {
-        // 'in' 표현식을 사용하여 배열에 포함된 코드들만 필터링해서 보여줌
-        map.setFilter('my-layer', ['in', ['get', '종목코드'], ['literal', enabledCodes]]);
-    }
-}
-
-    // 1. 검색을 위해 원본 GeoJSON 데이터를 별도로 로드 (서버에 올린 input.json 경로)
-let searchData;
-fetch('input.json') // tippecanoe로 변환하기 전 사용했던 그 파일입니다.
-    .then(res => res.json())
-    .then(json => {
-        searchData = json;
+        center: [127.02, 37.5], 
+        zoom: 11
     });
 
+    // 3. 검색용 원본 데이터 로드
+    let searchData = null;
+    fetch('input.json')
+        .then(res => res.json())
+        .then(json => { searchData = json; })
+        .catch(err => console.error("데이터 로드 실패:", err));
 
-// 검색 함수
+    // 4. 지도 이동 공통 함수 (전역 범위)
+    function moveToFeature(feature) {
+        if (!feature || !feature.geometry) return;
+
+        const bounds = new maplibregl.LngLatBounds();
+        const type = feature.geometry.type;
+        const coords = feature.geometry.coordinates;
+
+        // 좌표 추출 및 Bounds 확장
+        if (type === 'Point') {
+            bounds.extend(coords);
+        } else if (type === 'Polygon' || type === 'MultiPolygon') {
+            const allCoords = type === 'MultiPolygon' ? coords.flat(2) : coords[0];
+            allCoords.forEach(c => bounds.extend(c));
+        }
+
+        if (!bounds.isEmpty()) {
+            map.fitBounds(bounds, { padding: 80, maxZoom: 17, duration: 1000 });
+            
+            // 팝업 생성
+            new maplibregl.Popup()
+                .setLngLat(bounds.getCenter())
+                .setHTML(`<strong>${feature.properties['문화유산명'] || '문화유산'}</strong>`)
+                .addTo(map);
+        }
+    }
+
+    // 5. 검색 실행 함수
     function searchHeritage() {
         const keyword = document.getElementById('search-input').value.trim();
         const resultsDiv = document.getElementById('search-results');
+        
         if (!keyword) return;
+        if (!searchData) return alert("데이터를 로딩 중입니다.");
 
         const matches = searchData.features.filter(f => 
             f.properties['문화유산명'] && f.properties['문화유산명'].includes(keyword)
@@ -299,11 +232,12 @@ fetch('input.json') // tippecanoe로 변환하기 전 사용했던 그 파일입
                 const item = document.createElement('div');
                 item.className = 'result-item';
                 item.innerText = `📍 ${f.properties['문화유산명']}`;
-           item.onclick = () => {
-    moveToFeature(f); // 수정된 이동 함수 호출
-    resultsDiv.style.display = 'none'; // 목록 닫기
-    document.getElementById('search-input').value = f.properties['문화유산명']; // 입력창 이름 변경
-};
+                
+                // 이벤트 리스너로 확실하게 작동 보장
+                item.addEventListener('click', function() {
+                    moveToFeature(f);
+                    resultsDiv.style.display = 'none';
+                });
                 resultsDiv.appendChild(item);
             });
         } else {
@@ -311,46 +245,70 @@ fetch('input.json') // tippecanoe로 변환하기 전 사용했던 그 파일입
             alert("검색 결과가 없습니다.");
         }
     }
-function moveToFeature(feature) {
-    if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
-        // 1. 폴리곤의 모든 좌표를 모아 경계(Bounds) 계산
-        const bounds = new maplibregl.LngLatBounds();
-        
-        // MultiPolygon 처리 포함
-        const coords = feature.geometry.type === 'MultiPolygon' 
-            ? feature.geometry.coordinates.flat(2) 
-            : feature.geometry.coordinates[0];
 
-        coords.forEach(coord => {
-            bounds.extend(coord);
+    // 6. 데이터 레이어 추가
+    map.on('load', () => {
+        map.addSource('my-data', {
+            type: 'vector',
+            url: 'pmtiles://my_map.pmtiles'
         });
 
-        // 2. 폴리곤 전체가 화면에 들어오도록 이동
-        map.fitBounds(bounds, {
-            padding: 100, // 화면 가장자리 여백
-            maxZoom: 17,  // 너무 가까이 가지 않도록 제한
-            duration: 1500 // 이동 속도 (ms)
+        map.addLayer({
+            'id': 'my-layer',
+            'type': 'fill',
+            'source': 'my-data',
+            'source-layer': 'input', 
+            'paint': {
+                'fill-color': [
+                    'match', ['get', '종목코드'],
+                    '11', '#e6194b', '12', '#3cb44b', '13', '#ffe119',
+                    '14', '#4363d8', '15', '#f58231', '16', '#911eb4', '18', '#888888', '#cccccc'
+                ],
+                'fill-opacity': 0.7,
+                'fill-outline-color': '#ffffff'
+            }
         });
 
-        // 중심점에 팝업 띄우기
-        new maplibregl.Popup()
-            .setLngLat(bounds.getCenter())
-            .setHTML(`<strong>${feature.properties['문화유산명']}</strong>`)
-            .addTo(map);
+        // 클릭 시 상세 정보 팝업
+        map.on('click', 'my-layer', (e) => {
+            const props = e.features[0].properties;
+            const name = props['문화유산명'] || '정보없음';
+            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name)}`;
+            
+            let html = `<strong>${name}</strong><br><hr>`;
+            for(let key in props) { html += `<small>${key}: ${props[key]}</small><br>`; }
+            html += `<a href="${searchUrl}" target="_blank" class="popup-link">구글 검색 이동</a>`;
 
-    } else if (feature.geometry.type === 'Point') {
-        // 포인트 데이터인 경우 기존 방식 유지
-        map.flyTo({
-            center: feature.geometry.coordinates,
-            zoom: 17,
-            speed: 1.2
+            new maplibregl.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
         });
+
+        map.on('mouseenter', 'my-layer', () => map.getCanvas().style.cursor = 'pointer');
+        map.on('mouseleave', 'my-layer', () => map.getCanvas().style.cursor = '');
+    });
+
+    // 7. 필터 업데이트
+    function updateFilter() {
+        const codes = [];
+        for(let i=11; i<=16; i++) {
+            if(document.getElementById(`chk-${i}`).checked) codes.push(i);
+        }
+        if(codes.length === 0) {
+            map.setFilter('my-layer', ['==', ['get', '종목코드'], 'none']);
+        } else {
+            map.setFilter('my-layer', ['in', ['get', '종목코드'], ['literal', codes]]);
+        }
     }
-}
+
+    // 엔터키 지원
+    document.getElementById('search-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') searchHeritage();
+    });
+
         </script>
 </body>
 
 </html>
+
 
 
 
