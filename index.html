@@ -118,7 +118,7 @@
 
         // 1. 프록시 서버 설정 (CORS 우회용)
         const proxy = "https://cors-anywhere.herokuapp.com/";
-        const apiUrl = `https://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaNm=${encodeURIComponent(keyword)}`;
+        const apiUrl = `https://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaMnm1=${encodeURIComponent(keyword)}`;
 
         try {
             // 2. 프록시를 결합하여 호출
@@ -232,6 +232,7 @@
 </script>
 </body>
 </html>
+
 
 
 
