@@ -87,14 +87,40 @@
 #search-box button:hover {
     background: #0056b3;
 }
+#search-results {
+    margin-top: 10px;
+    max-height: 200px;
+    overflow-y: auto; /* 결과가 많으면 스크롤 */
+    background: white;
+    border-top: 1px solid #eee;
+}
+
+.result-item {
+    padding: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    border-bottom: 1px solid #f9f9f9;
+}
+
+.result-item:hover {
+    background: #f0f7ff;
+    color: #007bff;
+}
+
+.result-item:last-child { border-bottom: none; }
+    
+    
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div id="search-box">
-    <input type="text" id="search-input" placeholder="문화유산명을 입력하세요 (예: 경복궁)">
-    <button onclick="searchHeritage()">검색</button>
-     </div>
+   <div id="search-box">
+    <div style="display: flex; gap: 5px;">
+        <input type="text" id="search-input" placeholder="문화유산명 입력 (예: 경복궁)">
+        <button onclick="searchHeritage()">검색</button>
+    </div>
+    <div id="search-results" style="display: none;"></div>
+</div> 
     <div id="legend" style="position: absolute; bottom: 30px; left: 10px; z-index: 1; background: white; padding: 10px; border-radius: 5px; line-height: 1.5; box-shadow: 0 0 15px rgba(0,0,0,0.2);">
     <h4 style="margin-top:0">국가유산 범례</h4>
     <div class="legend-item">
@@ -258,49 +284,67 @@ fetch('input.json') // tippecanoe로 변환하기 전 사용했던 그 파일입
 // 2. 검색 함수
 function searchHeritage() {
     const keyword = document.getElementById('search-input').value.trim();
+    const resultsContainer = document.getElementById('search-results');
+    
     if (!keyword) return alert("검색어를 입력하세요.");
 
-    // 데이터에서 이름이 일치하는 요소 찾기 (속성명이 '문화유산명'인 경우 가정)
-    const feature = searchData.features.find(f => 
+    // 1. 키워드가 포함된 모든 데이터 찾기
+    const matches = searchData.features.filter(f => 
         f.properties['문화유산명'] && f.properties['문화유산명'].includes(keyword)
     );
 
-    if (feature) {
-        // 해당 위치의 좌표 가져오기 (Polygon의 경우 첫 번째 좌표 사용)
-        let coordinates;
-        if (feature.geometry.type === 'Point') {
-            coordinates = feature.geometry.coordinates;
-        } else {
-            // 폴리곤/라인인 경우 중심점 계산 (단순화를 위해 첫 번째 좌표 사용)
-            coordinates = feature.geometry.coordinates[0][0]; 
-        }
-
-        // 지도를 해당 위치로 부드럽게 이동
-        map.flyTo({
-            center: coordinates,
-            zoom: 16,
-            essential: true
-        });
-
-        // 이동 후 해당 지점에 팝업 띄우기 (선택 사항)
-        new maplibregl.Popup()
-            .setLngLat(coordinates)
-            .setHTML(`<strong>${feature.properties['문화유산명']}</strong><br>위치로 이동했습니다.`)
-            .addTo(map);
-
-    } else {
-        alert("일치하는 문화유산을 찾을 수 없습니다.");
+    // 2. 결과 창 초기화
+    resultsContainer.innerHTML = '';
+    
+    if (matches.length === 0) {
+        resultsContainer.style.display = 'none';
+        alert("일치하는 결과가 없습니다.");
+        return;
     }
+
+    // 3. 결과 리스트 생성
+    resultsContainer.style.display = 'block';
+    matches.forEach(feature => {
+        const name = feature.properties['문화유산명'];
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.innerHTML = `📍 ${name}`;
+        
+        // 리스트 항목 클릭 시 해당 위치로 이동
+        div.onclick = () => {
+            moveToFeature(feature);
+            resultsContainer.style.display = 'none'; // 이동 후 목록 닫기
+        };
+        resultsContainer.appendChild(div);
+    });
 }
 
-// 엔터키 검색 지원
-document.getElementById('search-input').addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') searchHeritage();
-});
+// 위치 이동 공통 함수
+function moveToFeature(feature) {
+    let coordinates;
+    if (feature.geometry.type === 'Point') {
+        coordinates = feature.geometry.coordinates;
+    } else {
+        // 폴리곤 중심점(간이식)
+        coordinates = feature.geometry.coordinates[0][0]; 
+    }
+
+    map.flyTo({
+        center: coordinates,
+        zoom: 17,
+        essential: true
+    });
+
+    new maplibregl.Popup()
+        .setLngLat(coordinates)
+        .setHTML(`<strong>${feature.properties['문화유산명']}</strong>`)
+        .addTo(map);
+}
         </script>
 </body>
 
 </html>
+
 
 
 
