@@ -241,16 +241,26 @@
     });
 
     // 7. 필터 및 엔터키 제어
-    function updateFilter() {
+  function updateFilter() {
         const codes = [];
-        for(let i=11; i<=16; i++) { if(document.getElementById(`chk-${i}`).checked) codes.push(i); }
-        map.setFilter('my-layer', codes.length === 0 ? ['==', ['get', '종목코드'], 'none'] : ['in', ['get', '종목코드'], ['literal', codes]]);
+        for(let i=11; i<=16; i++) {
+            if(document.getElementById(`chk-${i}`).checked) codes.push(i);
+        }
+        if(codes.length === 0) {
+            map.setFilter('my-layer', ['==', ['get', '종목코드'], 'none']);
+        } else {
+            map.setFilter('my-layer', ['in', ['get', '종목코드'], ['literal', codes]]);
+        }
     }
 
-    document.getElementById('search-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') searchHeritage(); });
+    // 엔터키 지원
+    document.getElementById('search-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') searchHeritage();
+    });
 </script>
 </body>
 </html>
+
 
 
 
