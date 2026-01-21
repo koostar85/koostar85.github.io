@@ -50,22 +50,44 @@
 
 <div id="search-box">
     <div class="search-container">
-        <input type="text" id="search-input" placeholder="국가유산 명칭 입력 (예: 불국사)">
+        <input type="text" id="search-input" placeholder="국가유산 명칭 입력 (예: 경복궁)">
         <button onclick="searchHeritage()">검색</button>
     </div>
     <div id="search-results"></div>
 </div>
 
 <div id="legend">
-    <h4>종목 필터</h4>
-    <div class="legend-item"><input type="checkbox" id="chk-11" checked onclick="updateFilter()"><span style="background:#e6194b;"></span> 국보 (11)</div>
-    <div class="legend-item"><input type="checkbox" id="chk-12" checked onclick="updateFilter()"><span style="background:#3cb44b;"></span> 보물 (12)</div>
-    <div class="legend-item"><input type="checkbox" id="chk-13" checked onclick="updateFilter()"><span style="background:#ffe119;"></span> 사적 (13)</div>
-    <div class="legend-item"><input type="checkbox" id="chk-14" checked onclick="updateFilter()"><span style="background:#4363d8;"></span> 사적 및 명승 (14)</div>
-    <div class="legend-item"><input type="checkbox" id="chk-15" checked onclick="updateFilter()"><span style="background:#f58231;"></span> 명승 (15)</div>
-    <div class="legend-item"><input type="checkbox" id="chk-16" checked onclick="updateFilter()"><span style="background:#911eb4;"></span> 천연기념물 (16)</div>
-    <div class="legend-item"><input type="checkbox" id="chk-18" checked onclick="updateFilter()"><span style="background:#888888;"></span> 국가민속유산 (18)</div>
-</div>
+    <h4>국가유산 범례</h4>
+   <div class="legend-item">
+        <input type="checkbox" id="chk-11" checked onclick="updateFilter()">
+        <span style="background:#e6194b;"></span>  국보 (11)
+    </div>
+    <div class="legend-item">
+        <input type="checkbox" id="chk-12" checked onclick="updateFilter()">
+        <span style="background:#3cb44b;"></span> 보물(12)
+    </div>
+    <div class="legend-item">
+        <input type="checkbox" id="chk-13" checked onclick="updateFilter()">
+        <span style="background:#ffe119;"></span> 사적 (13)
+    </div>
+    <div class="legend-item">
+        <input type="checkbox" id="chk-14" checked onclick="updateFilter()">
+        <span style="background:#4363d8;"></span> 사적및명승 (14)
+    </div>
+    <div class="legend-item">
+        <input type="checkbox" id="chk-15" checked onclick="updateFilter()">
+        <span style="background:#f58231;"></span> 명승 (15)
+    </div>
+    <div class="legend-item">
+        <input type="checkbox" id="chk-16" checked onclick="updateFilter()">
+        <span style="background:#911eb4;"></span> 천연기념물 (16)
+    </div>
+            <div class="legend-item">
+        <input type="checkbox" id="chk-18" checked onclick="updateFilter()">
+        <span style="background:#888888;"></span> 국가민속문화유산 (18)
+    </div>
+
+    </div>
 
 <script>
     // 1. PMTiles 설정
@@ -93,9 +115,9 @@
 
     // 3. 국가유산청 API로부터 상세 정보를 가져오는 공통 함수
     async function fetchHeritageDetail(name) {
-        const targetUrl = `https://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaMnm1=${encodeURIComponent(keyword)}`; 
+        const apiUrl = `https://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaMnm1=${encodeURIComponent(name)}`; 
         try {
-            const response = await fetch(targetUrl);
+            const response = await fetch(apiUrl);
             const text = await response.text();
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(text, "text/xml");
@@ -108,55 +130,51 @@
     }
 
     // 4. 검색창 검색 함수
-  async function searchHeritage() {
+    async function searchHeritage() {
         const keyword = document.getElementById('search-input').value.trim();
-        const resDiv = document.getElementById('results');
-        if (!keyword) return;
+        const resultsDiv = document.getElementById('search-results');
+        if (!keyword) return alert("검색어를 입력하세요.");
 
-        resDiv.innerHTML = '<div class="item">데이터 요청 중...</div>';
-        resDiv.style.display = 'block';
+        resultsDiv.innerHTML = '<div class="result-item">검색 중...</div>';
+        resultsDiv.style.display = 'block';
 
-        // 1. 프록시 서버 설정 (CORS 우회용)
-        const proxy = "https://cors-anywhere.herokuapp.com/";
         const apiUrl = `https://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaMnm1=${encodeURIComponent(keyword)}`;
 
         try {
-            // 2. 프록시를 결합하여 호출
-            const response = await fetch(proxy + apiUrl);
-            if (!response.ok) throw new Error("프록시 서버 응답 오류");
-            
-            const xmlText = await response.text();
+            const response = await fetch(apiUrl);
+            const text = await response.text();
             const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
+            const xmlDoc = parser.parseFromString(text, "text/xml");
             const items = xmlDoc.getElementsByTagName("item");
 
-            resDiv.innerHTML = '';
+            resultsDiv.innerHTML = '';
             if (items.length > 0) {
                 Array.from(items).forEach(item => {
                     const name = item.getElementsByTagName("ccbaNm")[0].textContent;
+                    const region = item.getElementsByTagName("ccbaCtcdNm")[0].textContent;
                     const lon = item.getElementsByTagName("longitude")[0].textContent;
                     const lat = item.getElementsByTagName("latitude")[0].textContent;
 
                     const div = document.createElement('div');
-                    div.className = 'item';
-                    div.innerHTML = `📍 <b>${name}</b>`;
+                    div.className = 'result-item';
+                    div.innerHTML = `<strong>📍 ${name}</strong><small>${region}</small>`;
+                    
                     div.onclick = () => {
                         if (lon && lat && lon !== "0") {
                             map.flyTo({ center: [parseFloat(lon), parseFloat(lat)], zoom: 16 });
-                            new maplibregl.Popup().setLngLat([parseFloat(lon), parseFloat(lat)]).setHTML(`<b>${name}</b>`).addTo(map);
-                            resDiv.style.display = 'none';
+                            showPopup(parseFloat(lon), parseFloat(lat), name, item);
+                            resultsDiv.style.display = 'none';
                         } else {
-                            alert("위치 정보가 없는 유산입니다.");
+                            alert("위치 정보가 없습니다.");
                         }
                     };
-                    resDiv.appendChild(div);
+                    resultsDiv.appendChild(div);
                 });
             } else {
-                resDiv.innerHTML = '<div class="item">결과가 없습니다.</div>';
+                resultsDiv.innerHTML = '<div class="result-item">일치하는 결과가 없습니다.</div>';
             }
         } catch (e) {
-            console.error(e);
-            resDiv.innerHTML = '<div class="item" style="color:red;">프록시 접근 권한이 필요합니다. 아래 설명을 확인하세요.</div>';
+            resultsDiv.innerHTML = '<div class="result-item">API 연결 실패</div>';
         }
     }
 
@@ -195,6 +213,7 @@
                     'match', ['get', '종목코드'],
                     '11', '#e6194b', '12', '#3cb44b', '13', '#ffe119',
                     '14', '#4363d8', '15', '#f58231', '16', '#911eb4', '18', '#888888', '#cccccc'
+
                 ],
                 'fill-opacity': 0.65,
                 'fill-outline-color': '#ffffff'
@@ -232,16 +251,6 @@
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
 
 
 
