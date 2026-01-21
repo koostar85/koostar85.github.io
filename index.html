@@ -108,51 +108,55 @@
     }
 
     // 4. 검색창 검색 함수
-    async function searchHeritage() {
+  async function searchHeritage() {
         const keyword = document.getElementById('search-input').value.trim();
-        const resultsDiv = document.getElementById('search-results');
-        if (!keyword) return alert("검색어를 입력하세요.");
+        const resDiv = document.getElementById('results');
+        if (!keyword) return;
 
-        resultsDiv.innerHTML = '<div class="result-item">검색 중...</div>';
-        resultsDiv.style.display = 'block';
+        resDiv.innerHTML = '<div class="item">데이터 요청 중...</div>';
+        resDiv.style.display = 'block';
 
+        // 1. 프록시 서버 설정 (CORS 우회용)
+        const proxy = "https://cors-anywhere.herokuapp.com/";
         const apiUrl = `https://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaNm=${encodeURIComponent(keyword)}`;
 
         try {
-            const response = await fetch(apiUrl);
-            const text = await response.text();
+            // 2. 프록시를 결합하여 호출
+            const response = await fetch(proxy + apiUrl);
+            if (!response.ok) throw new Error("프록시 서버 응답 오류");
+            
+            const xmlText = await response.text();
             const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(text, "text/xml");
+            const xmlDoc = parser.parseFromString(xmlText, "text/xml");
             const items = xmlDoc.getElementsByTagName("item");
 
-            resultsDiv.innerHTML = '';
+            resDiv.innerHTML = '';
             if (items.length > 0) {
                 Array.from(items).forEach(item => {
                     const name = item.getElementsByTagName("ccbaNm")[0].textContent;
-                    const region = item.getElementsByTagName("ccbaCtcdNm")[0].textContent;
                     const lon = item.getElementsByTagName("longitude")[0].textContent;
                     const lat = item.getElementsByTagName("latitude")[0].textContent;
 
                     const div = document.createElement('div');
-                    div.className = 'result-item';
-                    div.innerHTML = `<strong>📍 ${name}</strong><small>${region}</small>`;
-                    
+                    div.className = 'item';
+                    div.innerHTML = `📍 <b>${name}</b>`;
                     div.onclick = () => {
                         if (lon && lat && lon !== "0") {
                             map.flyTo({ center: [parseFloat(lon), parseFloat(lat)], zoom: 16 });
-                            showPopup(parseFloat(lon), parseFloat(lat), name, item);
-                            resultsDiv.style.display = 'none';
+                            new maplibregl.Popup().setLngLat([parseFloat(lon), parseFloat(lat)]).setHTML(`<b>${name}</b>`).addTo(map);
+                            resDiv.style.display = 'none';
                         } else {
-                            alert("위치 정보가 없습니다.");
+                            alert("위치 정보가 없는 유산입니다.");
                         }
                     };
-                    resultsDiv.appendChild(div);
+                    resDiv.appendChild(div);
                 });
             } else {
-                resultsDiv.innerHTML = '<div class="result-item">일치하는 결과가 없습니다.</div>';
+                resDiv.innerHTML = '<div class="item">결과가 없습니다.</div>';
             }
         } catch (e) {
-            resultsDiv.innerHTML = '<div class="result-item">API 연결 실패</div>';
+            console.error(e);
+            resDiv.innerHTML = '<div class="item" style="color:red;">프록시 접근 권한이 필요합니다. 아래 설명을 확인하세요.</div>';
         }
     }
 
@@ -228,6 +232,7 @@
 </script>
 </body>
 </html>
+
 
 
 
