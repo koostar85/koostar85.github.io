@@ -267,22 +267,62 @@
         });
 
         // 클릭 시 상세 정보 팝업
-        map.on('click', 'my-layer', (e) => {
-            const props = e.features[0].properties;
-            const name = props['문화유산명'] || '정보없음';
-            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name)}`;
+map.on('click', 'my-layer', async (e) => {
+    const props = e.features[0].properties;
+    const name = props['문화유산명']; // 내 데이터의 컬럼명에 맞춰 수정 (예: '명칭')
+
+    if (!name) {
+        alert("문화유산명이 없는 데이터입니다.");
+        return;
+    }
+
+    // 팝업 생성 (먼저 '로딩 중' 표시)
+    const popup = new maplibregl.Popup()
+        .setLngLat(e.lngLat)
+        .setHTML(`<strong>${name}</strong><br><p>국가유산청 정보를 불러오는 중...</p>`)
+        .addTo(map);
+
+    // 국가유산청 OpenAPI 호출 (상세 검색)
+    const apiUrl = `https://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaNm=${encodeURIComponent(name)}`;
+
+    try {
+        const response = await fetch(apiUrl);
+        const text = await response.text();
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(text, "text/xml");
+        const items = xmlDoc.getElementsByTagName("item");
+
+        if (items.length > 0) {
+            // 가장 첫 번째 검색 결과의 정보를 가져옴
+            const item = items[0];
+            const gcodeName = item.getElementsByTagName("ccmaName")[0]?.textContent || ""; // 종목명
+            const bcodeName = item.getElementsByTagName("ccbaCtcdNm")[0]?.textContent || ""; // 지역명
+            const asno = item.getElementsByTagName("ccbaAsno")[0]?.textContent || ""; // 관리번호
             
-            let html = `<strong>${name}</strong><br><hr>`;
-            for(let key in props) { html += `<small>${key}: ${props[key]}</small><br>`; }
-            html += `<a href="${searchUrl}" target="_blank" class="popup-link">구글 검색 이동</a>`;
+            // 팝업 내용 업데이트
+            let content = `<div style="width:200px; line-height:1.6;">`;
+            content += `<strong style="font-size:15px; color:#007bff;">${name}</strong><br>`;
+            content += `<hr style="margin:8px 0; border:0; border-top:1px solid #eee;">`;
+            content += `<small><b>종목:</b> ${gcodeName}</small><br>`;
+            content += `<small><b>지역:</b> ${bcodeName}</small><br>`;
+            content += `<small><b>관리번호:</b> ${asno}</small><br>`;
+            
+            // 국가유산청 상세페이지 링크 추가
+            const detailUrl = `https://www.heritage.go.kr/heri/cul/culSelectDetail.do?VdkVgwKey=${item.getElementsByTagName("ccbaKdcd")[0].textContent}_${item.getElementsByTagName("ccbaAsno")[0].textContent}_${item.getElementsByTagName("ccbaCtcd")[0].textContent}`;
+            
+            content += `<a href="${detailUrl}" target="_blank" style="display:block; margin-top:10px; padding:6px; background:#28a745; color:white; text-align:center; text-decoration:none; border-radius:4px; font-size:12px;">공식 상세정보 보기</a>`;
+            content += `</div>`;
 
-            new maplibregl.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
-        });
-
-        map.on('mouseenter', 'my-layer', () => map.getCanvas().style.cursor = 'pointer');
-        map.on('mouseleave', 'my-layer', () => map.getCanvas().style.cursor = '');
-    });
-
+            popup.setHTML(content);
+        } else {
+            popup.setHTML(`<strong>${name}</strong><br><p>국가유산청에 등록된 상세 정보가 없습니다.</p>`);
+        }
+    } catch (error) {
+        console.error("API 호출 중 오류:", error);
+        popup.setHTML(`<strong>${name}</strong><br><p>정보를 불러오는데 실패했습니다. (CORS 제한 등)</p>`);
+    }
+});
+      
     // 7. 필터 업데이트
     function updateFilter() {
         const codes = [];
@@ -305,6 +345,7 @@
 </body>
 
 </html>
+
 
 
 
