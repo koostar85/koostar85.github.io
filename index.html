@@ -1,166 +1,78 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
     <meta charset="utf-8" />
-    <title>문화재 공간정보 서비스</title>
+    <title>국가유산 실시간 인터랙티브 지도</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    
     <script src="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/pmtiles@2.x/dist/index.js"></script>
+
     <style>
-        body { margin: 0; padding: 0; }
+        body { margin: 0; padding: 0; font-family: 'Malgun Gothic', sans-serif; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-        /* 범례 전체 박스 스타일 */
-#legend {
-    position: absolute;
-    bottom: 30px; /* 바닥에서 30px 띄움 */
-    left: 10px;   /* 왼쪽에서 10px 띄움 */
-    z-index: 100; /* 지도보다 위에 표시 */
-    background: rgba(255, 255, 255, 0.9); /* 살짝 투명한 흰색 */
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
-    font-family: sans-serif;
-    line-height: 1.8;
-    min-width: 120px;
-}
 
-#legend h4 {
-    margin: 0 0 10px 0;
-    font-size: 14px;
-    border-bottom: 1px solid #ddd;
-    padding-bottom: 5px;
-}
-
-/* 범례 아이템(색상 상자 + 텍스트) 스타일 */
-.legend-item {
-    display: flex;
-    align-items: center;
-    font-size: 13px;
-    margin-bottom: 5px;
-}
-
-.legend-item input {
-    margin-right: 8px;
-    cursor: pointer;
-}
-
-.legend-item span {
-    width: 14px;
-    height: 14px;
-    margin-right: 8px;
-    border-radius: 2px;
-    display: inline-block;
-    border: 1px solid rgba(0,0,0,0.1);
-}
+        /* 검색창 UI */
+        #search-box {
+            position: absolute; top: 20px; left: 20px; z-index: 1000;
+            background: white; padding: 12px; border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15); width: 280px;
+        }
+        .search-container { display: flex; gap: 5px; }
+        #search-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px; outline: none; }
+        #search-box button { padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         
-#search-box {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    z-index: 1000;
-    background: white;
-    padding: 10px;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    display: flex;
-    gap: 5px;
-}
+        /* 검색 결과 목록 */
+        #search-results {
+            margin-top: 10px; max-height: 250px; overflow-y: auto;
+            border-top: 1px solid #eee; display: none;
+        }
+        .result-item { padding: 12px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f5f5f5; line-height: 1.4; }
+        .result-item:hover { background: #f0f7ff; color: #007bff; }
+        .result-item small { color: #888; display: block; margin-top: 2px; }
 
-#search-input {
-    width: 200px;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    outline: none;
-}
-
-#search-box button {
-    padding: 8px 15px;
-    background: #007bff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-#search-box button:hover {
-    background: #0056b3;
-}
-#search-results {
-    margin-top: 10px;
-    max-height: 200px;
-    overflow-y: auto; /* 결과가 많으면 스크롤 */
-    background: white;
-    border-top: 1px solid #eee;
-}
-
-.result-item {
-    padding: 8px;
-    cursor: pointer;
-    font-size: 13px;
-    border-bottom: 1px solid #f9f9f9;
-}
-
-.result-item:hover {
-    background: #f0f7ff;
-    color: #007bff;
-}
-
-.result-item:last-child { border-bottom: none; }
-    
-    
+        /* 범례 스타일 */
+        #legend {
+            position: absolute; bottom: 30px; left: 10px; z-index: 100;
+            background: rgba(255, 255, 255, 0.95); padding: 15px;
+            border-radius: 8px; box-shadow: 0 0 15px rgba(0, 0, 0, 0.1); min-width: 150px;
+        }
+        #legend h4 { margin: 0 0 10px 0; font-size: 14px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+        .legend-item { display: flex; align-items: center; font-size: 13px; margin-bottom: 6px; cursor: pointer; }
+        .legend-item input { margin-right: 10px; cursor: pointer; }
+        .legend-item span { width: 14px; height: 14px; margin-right: 10px; border-radius: 2px; border: 1px solid rgba(0,0,0,0.1); }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-   <div id="search-box">
-    <div style="display: flex; gap: 5px;">
-        <input type="text" id="search-input" placeholder="문화유산명 입력 (예: 경복궁)">
+
+<div id="map"></div>
+
+<div id="search-box">
+    <div class="search-container">
+        <input type="text" id="search-input" placeholder="국가유산 명칭 입력 (예: 불국사)">
         <button onclick="searchHeritage()">검색</button>
     </div>
-    <div id="search-results" style="display: none;"></div>
-</div> 
-    <div id="legend" style="position: absolute; bottom: 30px; left: 10px; z-index: 1; background: white; padding: 10px; border-radius: 5px; line-height: 1.5; box-shadow: 0 0 15px rgba(0,0,0,0.2);">
-    <h4 style="margin-top:0">국가유산 범례</h4>
-    <div class="legend-item">
-        <input type="checkbox" id="chk-11" checked onclick="updateFilter()">
-        <span style="background:#e6194b;"></span>  국보 (11)
-    </div>
-    <div class="legend-item">
-        <input type="checkbox" id="chk-12" checked onclick="updateFilter()">
-        <span style="background:#3cb44b;"></span> 보물(12)
-    </div>
-    <div class="legend-item">
-        <input type="checkbox" id="chk-13" checked onclick="updateFilter()">
-        <span style="background:#ffe119;"></span> 사적 (13)
-    </div>
-    <div class="legend-item">
-        <input type="checkbox" id="chk-14" checked onclick="updateFilter()">
-        <span style="background:#4363d8;"></span> 사적및명승 (14)
-    </div>
-    <div class="legend-item">
-        <input type="checkbox" id="chk-15" checked onclick="updateFilter()">
-        <span style="background:#f58231;"></span> 명승 (15)
-    </div>
-    <div class="legend-item">
-        <input type="checkbox" id="chk-16" checked onclick="updateFilter()">
-        <span style="background:#911eb4;"></span> 천연기념물 (16)
-    </div>
-            <div class="legend-item">
-        <input type="checkbox" id="chk-18" checked onclick="updateFilter()">
-        <span style="background:#888888;"></span> 국가민속문화유산 (18)
-    </div>
+    <div id="search-results"></div>
+</div>
 
-    </div>
+<div id="legend">
+    <h4>종목 필터</h4>
+    <div class="legend-item"><input type="checkbox" id="chk-11" checked onclick="updateFilter()"><span style="background:#e6194b;"></span> 국보 (11)</div>
+    <div class="legend-item"><input type="checkbox" id="chk-12" checked onclick="updateFilter()"><span style="background:#3cb44b;"></span> 보물 (12)</div>
+    <div class="legend-item"><input type="checkbox" id="chk-13" checked onclick="updateFilter()"><span style="background:#ffe119;"></span> 사적 (13)</div>
+    <div class="legend-item"><input type="checkbox" id="chk-14" checked onclick="updateFilter()"><span style="background:#4363d8;"></span> 사적 및 명승 (14)</div>
+    <div class="legend-item"><input type="checkbox" id="chk-15" checked onclick="updateFilter()"><span style="background:#f58231;"></span> 명승 (15)</div>
+    <div class="legend-item"><input type="checkbox" id="chk-16" checked onclick="updateFilter()"><span style="background:#911eb4;"></span> 천연기념물 (16)</div>
+    <div class="legend-item"><input type="checkbox" id="chk-18" checked onclick="updateFilter()"><span style="background:#888888;"></span> 국가민속유산 (18)</div>
+</div>
 
-    
-    <script>
-// 1. PMTiles 프로토콜 등록
+<script>
+    // 1. PMTiles 설정
     let protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
-    // 2. 지도 생성
+    // 2. 지도 초기화
     const map = new maplibregl.Map({
         container: 'map',
         style: {
@@ -175,37 +87,49 @@
             },
             "layers": [{"id": "osm-layer", "type": "raster", "source": "osm"}]
         },
-        center: [127.02, 37.5], 
+        center: [127.0, 37.5], 
         zoom: 11
     });
 
-// 3. 국가유산청 API 검색 함수
+    // 3. 국가유산청 API로부터 상세 정보를 가져오는 공통 함수
+    async function fetchHeritageDetail(name) {
+        const apiUrl = `https://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaNm=${encodeURIComponent(name)}`;
+        try {
+            const response = await fetch(apiUrl);
+            const text = await response.text();
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(text, "text/xml");
+            const items = xmlDoc.getElementsByTagName("item");
+            return items.length > 0 ? items[0] : null;
+        } catch (e) {
+            console.error("API Fetch Error:", e);
+            return null;
+        }
+    }
+
+    // 4. 검색창 검색 함수
     async function searchHeritage() {
         const keyword = document.getElementById('search-input').value.trim();
         const resultsDiv = document.getElementById('search-results');
-        
         if (!keyword) return alert("검색어를 입력하세요.");
 
         resultsDiv.innerHTML = '<div class="result-item">검색 중...</div>';
         resultsDiv.style.display = 'block';
 
-        // 국가유산청 검색 OpenAPI (ccbaNm: 유산명)
         const apiUrl = `https://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaNm=${encodeURIComponent(keyword)}`;
 
         try {
             const response = await fetch(apiUrl);
             const text = await response.text();
-            
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(text, "text/xml");
             const items = xmlDoc.getElementsByTagName("item");
 
             resultsDiv.innerHTML = '';
-
             if (items.length > 0) {
                 Array.from(items).forEach(item => {
                     const name = item.getElementsByTagName("ccbaNm")[0].textContent;
-                    const region = item.getElementsByTagName("ccbaCtcdNm")[0].textContent; // 지역
+                    const region = item.getElementsByTagName("ccbaCtcdNm")[0].textContent;
                     const lon = item.getElementsByTagName("longitude")[0].textContent;
                     const lat = item.getElementsByTagName("latitude")[0].textContent;
 
@@ -215,147 +139,95 @@
                     
                     div.onclick = () => {
                         if (lon && lat && lon !== "0") {
-                            map.flyTo({
-                                center: [parseFloat(lon), parseFloat(lat)],
-                                zoom: 16,
-                                speed: 1.5
-                            });
-
-                            new maplibregl.Popup()
-                                .setLngLat([parseFloat(lon), parseFloat(lat)])
-                                .setHTML(`<strong>${name}</strong><br><small>${region}</small>`)
-                                .addTo(map);
-                            
+                            map.flyTo({ center: [parseFloat(lon), parseFloat(lat)], zoom: 16 });
+                            showPopup(parseFloat(lon), parseFloat(lat), name, item);
                             resultsDiv.style.display = 'none';
                         } else {
-                            alert("이 유산은 좌표 정보가 없습니다.");
+                            alert("위치 정보가 없습니다.");
                         }
                     };
                     resultsDiv.appendChild(div);
                 });
             } else {
-                resultsDiv.innerHTML = '<div class="result-item">일치하는 유산이 없습니다.</div>';
+                resultsDiv.innerHTML = '<div class="result-item">일치하는 결과가 없습니다.</div>';
             }
-        } catch (error) {
-            console.error("API 호출 에러:", error);
-            resultsDiv.innerHTML = '<div class="result-item">API 연결 실패 (CORS 제한 가능성)</div>';
+        } catch (e) {
+            resultsDiv.innerHTML = '<div class="result-item">API 연결 실패</div>';
         }
     }
+
+    // 5. 팝업 표시 공통 함수
+    function showPopup(lon, lat, name, apiItem) {
+        const gcodeName = apiItem.getElementsByTagName("ccmaName")[0]?.textContent || "정보 없음";
+        const bcodeName = apiItem.getElementsByTagName("ccbaCtcdNm")[0]?.textContent || "정보 없음";
+        const asno = apiItem.getElementsByTagName("ccbaAsno")[0]?.textContent || "";
         
-    
-    // 6. 데이터 레이어 추가
+        // 국가유산청 공식 상세페이지 조합
+        const kdcd = apiItem.getElementsByTagName("ccbaKdcd")[0]?.textContent;
+        const ctcd = apiItem.getElementsByTagName("ccbaCtcd")[0]?.textContent;
+        const detailUrl = `https://www.heritage.go.kr/heri/cul/culSelectDetail.do?VdkVgwKey=${kdcd}_${asno}_${ctcd}`;
+
+        let html = `<div style="width:200px; padding:5px;">`;
+        html += `<strong style="font-size:14px; color:#007bff;">${name}</strong><hr style="margin:8px 0; border:0; border-top:1px solid #eee;">`;
+        html += `<div style="font-size:12px; margin-bottom:3px;"><b>종목:</b> ${gcodeName}</div>`;
+        html += `<div style="font-size:12px; margin-bottom:10px;"><b>지역:</b> ${bcodeName}</div>`;
+        html += `<a href="${detailUrl}" target="_blank" style="display:block; padding:8px; background:#28a745; color:white; text-align:center; text-decoration:none; border-radius:4px; font-size:12px;">공식 상세정보 보기</a>`;
+        html += `</div>`;
+
+        new maplibregl.Popup().setLngLat([lon, lat]).setHTML(html).addTo(map);
+    }
+
+    // 6. 지도 레이어 로드 및 클릭 이벤트
     map.on('load', () => {
-        map.addSource('my-data', {
-            type: 'vector',
-            url: 'pmtiles://my_map.pmtiles'
-        });
+        map.addSource('my-data', { type: 'vector', url: 'pmtiles://my_map.pmtiles' });
 
         map.addLayer({
             'id': 'my-layer',
             'type': 'fill',
             'source': 'my-data',
-            'source-layer': 'input', 
+            'source-layer': 'input',
             'paint': {
                 'fill-color': [
                     'match', ['get', '종목코드'],
                     '11', '#e6194b', '12', '#3cb44b', '13', '#ffe119',
                     '14', '#4363d8', '15', '#f58231', '16', '#911eb4', '18', '#888888', '#cccccc'
                 ],
-                'fill-opacity': 0.7,
+                'fill-opacity': 0.65,
                 'fill-outline-color': '#ffffff'
             }
         });
 
-        // 클릭 시 상세 정보 팝업
-map.on('click', 'my-layer', async (e) => {
-    const props = e.features[0].properties;
-    const name = props['문화유산명']; // 내 데이터의 컬럼명에 맞춰 수정 (예: '명칭')
+        // [핵심] 지도 클릭 시 실시간 API 호출
+        map.on('click', 'my-layer', async (e) => {
+            const name = e.features[0].properties['문화유산명'];
+            if (!name) return;
 
-    if (!name) {
-        alert("문화유산명이 없는 데이터입니다.");
-        return;
-    }
+            const tempPopup = new maplibregl.Popup().setLngLat(e.lngLat).setHTML(`<strong>${name}</strong><br>데이터 불러오는 중...`).addTo(map);
 
-    // 팝업 생성 (먼저 '로딩 중' 표시)
-    const popup = new maplibregl.Popup()
-        .setLngLat(e.lngLat)
-        .setHTML(`<strong>${name}</strong><br><p>국가유산청 정보를 불러오는 중...</p>`)
-        .addTo(map);
+            const apiItem = await fetchHeritageDetail(name);
+            if (apiItem) {
+                tempPopup.remove();
+                showPopup(e.lngLat.lng, e.lat.lat, name, apiItem);
+            } else {
+                tempPopup.setHTML(`<strong>${name}</strong><br>상세 정보가 없습니다.`);
+            }
+        });
 
-    // 국가유산청 OpenAPI 호출 (상세 검색)
-    const apiUrl = `https://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaNm=${encodeURIComponent(name)}`;
-
-    try {
-        const response = await fetch(apiUrl);
-        const text = await response.text();
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(text, "text/xml");
-        const items = xmlDoc.getElementsByTagName("item");
-
-        if (items.length > 0) {
-            // 가장 첫 번째 검색 결과의 정보를 가져옴
-            const item = items[0];
-            const gcodeName = item.getElementsByTagName("ccmaName")[0]?.textContent || ""; // 종목명
-            const bcodeName = item.getElementsByTagName("ccbaCtcdNm")[0]?.textContent || ""; // 지역명
-            const asno = item.getElementsByTagName("ccbaAsno")[0]?.textContent || ""; // 관리번호
-            
-            // 팝업 내용 업데이트
-            let content = `<div style="width:200px; line-height:1.6;">`;
-            content += `<strong style="font-size:15px; color:#007bff;">${name}</strong><br>`;
-            content += `<hr style="margin:8px 0; border:0; border-top:1px solid #eee;">`;
-            content += `<small><b>종목:</b> ${gcodeName}</small><br>`;
-            content += `<small><b>지역:</b> ${bcodeName}</small><br>`;
-            content += `<small><b>관리번호:</b> ${asno}</small><br>`;
-            
-            // 국가유산청 상세페이지 링크 추가
-            const detailUrl = `https://www.heritage.go.kr/heri/cul/culSelectDetail.do?VdkVgwKey=${item.getElementsByTagName("ccbaKdcd")[0].textContent}_${item.getElementsByTagName("ccbaAsno")[0].textContent}_${item.getElementsByTagName("ccbaCtcd")[0].textContent}`;
-            
-            content += `<a href="${detailUrl}" target="_blank" style="display:block; margin-top:10px; padding:6px; background:#28a745; color:white; text-align:center; text-decoration:none; border-radius:4px; font-size:12px;">공식 상세정보 보기</a>`;
-            content += `</div>`;
-
-            popup.setHTML(content);
-        } else {
-            popup.setHTML(`<strong>${name}</strong><br><p>국가유산청에 등록된 상세 정보가 없습니다.</p>`);
-        }
-    } catch (error) {
-        console.error("API 호출 중 오류:", error);
-        popup.setHTML(`<strong>${name}</strong><br><p>정보를 불러오는데 실패했습니다. (CORS 제한 등)</p>`);
-    }
-});
-      
-    // 7. 필터 업데이트
-    function updateFilter() {
-        const codes = [];
-        for(let i=11; i<=16; i++) {
-            if(document.getElementById(`chk-${i}`).checked) codes.push(i);
-        }
-        if(codes.length === 0) {
-            map.setFilter('my-layer', ['==', ['get', '종목코드'], 'none']);
-        } else {
-            map.setFilter('my-layer', ['in', ['get', '종목코드'], ['literal', codes]]);
-        }
-    }
-
-    // 엔터키 지원
-    document.getElementById('search-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') searchHeritage();
+        map.on('mouseenter', 'my-layer', () => map.getCanvas().style.cursor = 'pointer');
+        map.on('mouseleave', 'my-layer', () => map.getCanvas().style.cursor = '');
     });
 
-        </script>
+    // 7. 필터 및 엔터키 제어
+    function updateFilter() {
+        const codes = [];
+        for(let i=11; i<=16; i++) { if(document.getElementById(`chk-${i}`).checked) codes.push(i); }
+        map.setFilter('my-layer', codes.length === 0 ? ['==', ['get', '종목코드'], 'none'] : ['in', ['get', '종목코드'], ['literal', codes]]);
+    }
+
+    document.getElementById('search-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') searchHeritage(); });
+</script>
 </body>
-
 </html>
-
-
-
-
-
-
-
-
-
-
-
 
 
 
