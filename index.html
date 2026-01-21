@@ -299,11 +299,11 @@ fetch('input.json') // tippecanoe로 변환하기 전 사용했던 그 파일입
                 const item = document.createElement('div');
                 item.className = 'result-item';
                 item.innerText = `📍 ${f.properties['문화유산명']}`;
-                item.onclick = () => {
-                    const coord = f.geometry.type === 'Point' ? f.geometry.coordinates : f.geometry.coordinates[0][0];
-                    map.flyTo({ center: coord, zoom: 16 });
-                    resultsDiv.style.display = 'none';
-                };
+           item.onclick = () => {
+    moveToFeature(f); // 수정된 이동 함수 호출
+    resultsDiv.style.display = 'none'; // 목록 닫기
+    document.getElementById('search-input').value = f.properties['문화유산명']; // 입력창 이름 변경
+};
                 resultsDiv.appendChild(item);
             });
         } else {
@@ -311,11 +311,47 @@ fetch('input.json') // tippecanoe로 변환하기 전 사용했던 그 파일입
             alert("검색 결과가 없습니다.");
         }
     }
+function moveToFeature(feature) {
+    if (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') {
+        // 1. 폴리곤의 모든 좌표를 모아 경계(Bounds) 계산
+        const bounds = new maplibregl.LngLatBounds();
+        
+        // MultiPolygon 처리 포함
+        const coords = feature.geometry.type === 'MultiPolygon' 
+            ? feature.geometry.coordinates.flat(2) 
+            : feature.geometry.coordinates[0];
 
+        coords.forEach(coord => {
+            bounds.extend(coord);
+        });
+
+        // 2. 폴리곤 전체가 화면에 들어오도록 이동
+        map.fitBounds(bounds, {
+            padding: 100, // 화면 가장자리 여백
+            maxZoom: 17,  // 너무 가까이 가지 않도록 제한
+            duration: 1500 // 이동 속도 (ms)
+        });
+
+        // 중심점에 팝업 띄우기
+        new maplibregl.Popup()
+            .setLngLat(bounds.getCenter())
+            .setHTML(`<strong>${feature.properties['문화유산명']}</strong>`)
+            .addTo(map);
+
+    } else if (feature.geometry.type === 'Point') {
+        // 포인트 데이터인 경우 기존 방식 유지
+        map.flyTo({
+            center: feature.geometry.coordinates,
+            zoom: 17,
+            speed: 1.2
+        });
+    }
+}
         </script>
 </body>
 
 </html>
+
 
 
 
