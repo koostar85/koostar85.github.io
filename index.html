@@ -93,8 +93,8 @@
 
     // 3. 국가유산청 API로부터 상세 정보를 가져오는 공통 함수
     async function fetchHeritageDetail(name) {
-        const proxyUrl = "https://cors-anywhere.herokuapp.com/";
-        const apiUrl = `https://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaNm=${encodeURIComponent(name)}`;
+        const proxyUrl = "https://cors-anywhere.herokuapp.com/"; 
+        const targetUrl = `https://www.khs.go.kr/cha/SearchKindOpenapiList.do?ccbaNm=${encodeURIComponent(keyword)}`; 
         try {
             const response = await fetch(proxyUrl + targetUrl);
             const text = await response.text();
@@ -229,6 +229,7 @@
 </script>
 </body>
 </html>
+
 
 
 
