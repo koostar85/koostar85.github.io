@@ -246,8 +246,7 @@ function updateFilter() {
         map.setFilter('my-layer', ['in', ['get', '종목코드'], ['literal', enabledCodes]]);
     }
 }
-    </script>
-    <script>
+
     // 1. 검색을 위해 원본 GeoJSON 데이터를 별도로 로드 (서버에 올린 input.json 경로)
 let searchData;
 fetch('input.json') // tippecanoe로 변환하기 전 사용했던 그 파일입니다.
@@ -302,6 +301,7 @@ document.getElementById('search-input').addEventListener('keypress', function (e
 </body>
 
 </html>
+
 
 
 
