@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>문화재 공간정보 서비스</title>
+    <title>r국가지정유산 공간정보 서비스</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.css" rel="stylesheet" />
@@ -181,7 +181,7 @@
 
     // 3. 검색용 원본 데이터 로드
     let searchData = null;
-    fetch('input.json')
+    fetch('input1.json')
         .then(res => res.json())
         .then(json => { searchData = json; })
         .catch(err => console.error("데이터 로드 실패:", err));
@@ -247,30 +247,115 @@
     }
 
     // 6. 데이터 레이어 추가
-    map.on('load', () => {
-        map.addSource('my-data', {
-            type: 'vector',
-            url: 'pmtiles://my_map.pmtiles'
-        });
+map.on('load', () => {
+    // [1] 클러스터링을 위한 GeoJSON 소스 추가
+    map.addSource('heritage-geojson', {
+        type: 'geojson',
+        data: 'input1.json', // 전체 데이터가 담긴 파일
+        cluster: true,
+        clusterMaxZoom: 13, // 줌 13까지만 뭉침
+        clusterRadius: 50   // 뭉치는 범위(픽셀)
+    });
 
-        map.addLayer({
-            'id': 'my-layer',
-            'type': 'fill',
-            'source': 'my-data',
-            'source-layer': 'input', 
-            'paint': {
-                'fill-color': [
-                    'match', ['get', '종목코드'],
-                    '11', '#e6194b', '12', '#3cb44b', '13', '#ffe119',
-                    '14', '#4363d8', '15', '#f58231', '16', '#911eb4', '18', '#888888', '#cccccc'
-                ],
-                'fill-opacity': 0.7,
-                'fill-outline-color': '#ffffff'
-            }
+    // [2] 폴리곤 표현을 위한 Vector(PMTiles) 소스 추가
+    map.addSource('heritage-vector', {
+        type: 'vector',
+        url: 'pmtiles://my_map.pmtiles'
+    });
+
+    // --- 레이어 설정 시작 ---
+
+    // 1. 클러스터 원 (데이터가 뭉쳐진 상태)
+    map.addLayer({
+        id: 'clusters',
+        type: 'circle',
+        source: 'heritage-geojson',
+        filter: ['has', 'point_count'],
+        maxzoom: 14, // 줌 14까지만 보임
+        paint: {
+            'circle-color': [
+                'step', ['get', 'point_count'],
+                '#51bbd6', 100, '#f1f075', 500, '#f28cb1'
+            ],
+            'circle-radius': [
+                'step', ['get', 'point_count'],
+                20, 100, 30, 500, 40
+            ],
+            'circle-opacity': 0.8,
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#fff'
+        }
+    });
+
+    // 2. 클러스터 내 숫자
+    map.addLayer({
+        id: 'cluster-count',
+        type: 'symbol',
+        source: 'heritage-geojson',
+        filter: ['has', 'point_count'],
+        maxzoom: 14,
+        layout: {
+            'text-field': '{point_count}',
+            'text-font': ['Open Sans Bold'],
+            'text-size': 12
+        }
+    });
+
+    // 3. 개별 점 (더 이상 뭉쳐지지 않는 낱개 데이터)
+    map.addLayer({
+        id: 'unclustered-point',
+        type: 'circle',
+        source: 'heritage-geojson',
+        filter: ['!', ['has', 'point_count']],
+        maxzoom: 14,
+        paint: {
+            'circle-color': [
+                'match', ['get', '종목코드'],
+                11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', '#cccccc'
+            ],
+            'circle-radius': 6,
+            'circle-stroke-width': 1.5,
+            'circle-stroke-color': '#fff'
+        }
+    });
+
+    // 4. 상세 폴리곤 (확대 시 나타남)
+    map.addLayer({
+        id: 'heritage-polygon',
+        type: 'fill',
+        source: 'heritage-vector',
+        'source-layer': 'input',
+        minzoom: 13.5, // 점 레이어와 자연스럽게 교체되도록 설정
+        paint: {
+            'fill-color': [
+                'match', ['get', '종목코드'],
+                11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', '#cccccc'
+            ],
+            'fill-opacity': [
+                'interpolate', ['linear'], ['zoom'],
+                13.5, 0,
+                14.5, 0.6
+            ],
+            'fill-outline-color': '#ffffff'
+        }
+    });
+});
+
+        map.on('click', 'clusters', (e) => {
+    const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+    const clusterId = features[0].properties.cluster_id;
+    
+    map.getSource('heritage-geojson').getClusterExpansionZoom(clusterId, (err, zoom) => {
+        if (err) return;
+        map.easeTo({
+            center: features[0].geometry.coordinates,
+            zoom: zoom + 1 // 한 단계 더 확대
         });
+    });
+});
 
         // 클릭 시 상세 정보 팝업
-        map.on('click', 'my-layer', (e) => {
+        map.on('click', 'heritage-polygon', (e) => {
             const props = e.features[0].properties;
             const name = props['문화유산명'] || '정보없음';
             const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name)}`;
@@ -282,8 +367,8 @@
             new maplibregl.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
         });
 
-        map.on('mouseenter', 'my-layer', () => map.getCanvas().style.cursor = 'pointer');
-        map.on('mouseleave', 'my-layer', () => map.getCanvas().style.cursor = '');
+        map.on('mouseenter', 'heritage-polygon', () => map.getCanvas().style.cursor = 'pointer');
+        map.on('mouseleave', 'heritage-polygon', () => map.getCanvas().style.cursor = '');
     });
 
     // 7. 필터 업데이트
@@ -300,10 +385,10 @@ function updateFilter() {
     if (document.getElementById('chk-18').checked) enabledCodes.push('18');
     if (enabledCodes.length === 0) {
         // 아무것도 체크 안 된 경우 아무것도 안 보여줌
-        map.setFilter('my-layer', ['==', ['get', '종목코드'], 'none']);
+        map.setFilter(heritage-polygon', ['==', ['get', '종목코드'], 'none']);
     } else {
         // 'in' 표현식을 사용하여 배열에 포함된 코드들만 필터링해서 보여줌
-        map.setFilter('my-layer', ['in', ['get', '종목코드'], ['literal', enabledCodes]]);
+        map.setFilter('heritage-polygon', ['in', ['get', '종목코드'], ['literal', enabledCodes]]);
     }
 }
 
@@ -316,6 +401,7 @@ function updateFilter() {
 </body>
 
 </html>
+
 
 
 
