@@ -107,7 +107,13 @@
             type: 'vector',
             url: 'pmtiles://my_map.pmtiles'
         });
-
+map.on('sourcedata', (e) => {
+    // 소스 ID가 내가 등록한 'heritage-vector'일 때만 작동
+    if (e.sourceId === 'heritage-vector' && e.isSourceLoaded) {
+        const layers = map.getSource('heritage-vector').vectorLayerIds;
+        console.log("📍 발견된 실제 레이어 이름:", layers);
+    }
+});
         // [레이어 1] 클러스터 원
         map.addLayer({
             id: 'clusters',
@@ -273,6 +279,7 @@
 </script>
 </body>
 </html>
+
 
 
 
