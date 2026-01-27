@@ -38,7 +38,7 @@
         map.on('load', async () => {
             try {
                 // 1. 데이터 가져오기
-                const response = await fetch('input1.json');
+                const response = await fetch('input.json');
                 if (!response.ok) throw new Error("파일 로드 실패");
                 const data = await response.json();
                 
@@ -75,5 +75,6 @@
     </script>
 </body>
 </html>
+
 
 
