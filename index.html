@@ -93,6 +93,21 @@
 
     // 4. 레이어 추가
     map.on('load', () => {
+
+        const vectorSource = map.getSource('heritage-vector');
+if (vectorSource) {
+    // 실시간으로 레이어 ID를 감시하여 출력
+    const checkInterval = setInterval(() => {
+        const ids = vectorSource.vectorLayerIds;
+        if (ids && ids.length > 0) {
+            console.log("✅ 드디어 찾은 레이어 이름:", ids);
+            clearInterval(checkInterval);
+        }
+    }, 500); // 0.5초마다 확인
+} else {
+    console.error("❌ 'heritage-vector' 소스가 등록되지 않았습니다.");
+}
+        
         // GeoJSON 소스 (클러스터용)
         map.addSource('heritage-geojson', {
             type: 'geojson',
@@ -279,6 +294,7 @@ map.on('sourcedata', (e) => {
 </script>
 </body>
 </html>
+
 
 
 
