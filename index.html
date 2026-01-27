@@ -81,7 +81,7 @@
             "layers": [{"id": "osm-layer", "type": "raster", "source": "osm"}]
         },
         center: [127.5, 36.5], 
-        zoom: 7
+        zoom: 10
     });
 
     // 3. 검색용 원본 데이터 로드
@@ -162,13 +162,13 @@
             type: 'fill',
             source: 'heritage-vector',
             'source-layer': 'input',
-            minzoom: 13.5,
+            minzoom: 10,
             paint: {
                 'fill-color': [
                     'match', ['get', '종목코드'],
                     11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 14, '#4363d8', 15, '#f58231', 16, '#911eb4', 18, '#888888', '#cccccc'
                 ],
-                'fill-opacity': ['interpolate', ['linear'], ['zoom'], 13.5, 0, 14.5, 0.6],
+                'fill-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0, 13, 0.7],
                 'fill-outline-color': '#ffffff'
             }
         });
@@ -273,6 +273,7 @@
 </script>
 </body>
 </html>
+
 
 
 
