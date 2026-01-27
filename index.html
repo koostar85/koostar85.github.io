@@ -51,30 +51,79 @@
                     data: data,
                     cluster: false 
                 });
+// 1. 소스 수정 (클러스터 다시 활성화)
+map.getSource('heritage-source').setData(data); // 데이터 재설정
+map.getSource('heritage-source').cluster = true; // 클러스터 켜기
 
-                // 3. 테스트용 단순 폴리곤 레이어 (가장 먼저 추가)
-                map.addLayer({
-                    id: 'test-poly-layer',
-                    type: 'fill',
-                    source: 'heritage-source',
-                    paint: {
-                        'fill-color': '#ffff00', // 무조건 노란색
-                        'fill-opacity': 0.5,
-                        'fill-outline-color': '#000000'
-                    }
-                });
+// 2. [멀리서] 클러스터 원 (데이터가 뭉쳐진 상태)
+map.addLayer({
+    id: 'clusters',
+    type: 'circle',
+    source: 'heritage-source',
+    filter: ['has', 'point_count'],
+    maxzoom: 13, // 줌 13까지만 보임
+    paint: {
+        'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
+        'circle-radius': ['step', ['get', 'point_count'], 20, 50, 30, 200, 40],
+        'circle-stroke-width': 2,
+        'circle-stroke-color': '#fff'
+    }
+});
 
-                loader.style.display = 'none'; // 성공 시 로더 제거
-                console.log("렌더링 성공: ", data.features.length, "개의 도형");
+// 3. [멀리서] 클러스터 숫자
+map.addLayer({
+    id: 'cluster-count',
+    type: 'symbol',
+    source: 'heritage-source',
+    filter: ['has', 'point_count'],
+    maxzoom: 13,
+    layout: {
+        'text-field': '{point_count}',
+        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+        'text-size': 12
+    }
+});
 
-            } catch (err) {
-                loader.innerHTML = `<span style="color:red">에러 발생: ${err.message}</span>`;
-                console.error(err);
-            }
-        });
+// 4. [중간] 개별 점 (폴리곤의 중심점 자동 생성)
+map.addLayer({
+    id: 'unclustered-point',
+    type: 'circle',
+    source: 'heritage-source',
+    filter: ['!', ['has', 'point_count']],
+    maxzoom: 14,
+    paint: {
+        'circle-color': [
+            'match', ['get', '종목코드'],
+            11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 14, '#4363d8', 
+            15, '#f58231', 16, '#911eb4', 18, '#888888', '#cccccc'
+        ],
+        'circle-radius': 6,
+        'circle-stroke-width': 2,
+        'circle-stroke-color': '#fff'
+    }
+});
+
+// 5. [가까이] 실제 폴리곤 (상세 경계)
+map.addLayer({
+    id: 'heritage-polygon',
+    type: 'fill',
+    source: 'heritage-source',
+    minzoom: 12, // 줌 12부터 서서히 나타남
+    paint: {
+        'fill-color': [
+            'match', ['get', '종목코드'],
+            11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 14, '#4363d8', 
+            15, '#f58231', 16, '#911eb4', 18, '#888888', '#cccccc'
+        ],
+        'fill-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0, 14, 0.6],
+        'fill-outline-color': '#ffffff'
+    }
+});
+    
     </script>
 </body>
 </html>
+
 
 
 
