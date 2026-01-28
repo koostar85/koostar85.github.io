@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>국가유산 지도 - 로딩 최적화</title>
+    <title>국가유산 지도 - LOD 최적화</title>
     <script src="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.css" rel="stylesheet" />
     <style>
@@ -12,11 +12,14 @@
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: rgba(255,255,255,0.9); padding: 20px; border-radius: 10px;
             z-index: 9999; box-shadow: 0 0 10px rgba(0,0,0,0.2); font-weight: bold;
+            display: block; /* 초기 로더 표시 */
         }
     </style>
 </head>
 <body>
 
+    <div id="loader">단순화 데이터 로딩 중...</div>
+    <div id="map"></div>
 
     <script>
         const loader = document.getElementById('loader');
@@ -25,6 +28,8 @@
             container: 'map',
             style: {
                 "version": 8,
+                // 폰트 에러 방지를 위해 glyphs 추가
+                "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
                 "sources": {
                     "osm": { "type": "raster", "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], "tileSize": 256 }
                 },
@@ -34,85 +39,83 @@
             zoom: 7
         });
 
-
         map.on('load', async () => {
-    // 1. 우선 가벼운 단순화 파일만 즉시 로드 (사용자 대기 시간 단축)
-    const simpleRes = await fetch('input_simple.json');
-    const simpleData = await simpleRes.json();
+            try {
+                // 1. 단순화 파일 로드 (빠른 초기 화면)
+                const simpleRes = await fetch('input_simple.json');
+                const simpleData = await simpleRes.json();
 
-    // [소스 A] 단순화 데이터 (줌 0 ~ 13용)
-    map.addSource('heritage-simple', {
-        type: 'geojson',
-        data: simpleData,
-        cluster: true,
-        clusterMaxZoom: 12,
-        clusterRadius: 50
-    });
+                map.addSource('heritage-simple', {
+                    type: 'geojson',
+                    data: simpleData,
+                    cluster: true,
+                    clusterMaxZoom: 12,
+                    clusterRadius: 50
+                });
 
-    // [레이어 A-1] 단순화 클러스터
-    map.addLayer({
-        id: 'clusters-simple',
-        type: 'circle',
-        source: 'heritage-simple',
-        filter: ['has', 'point_count'],
-        maxzoom: 13,
-        paint: {
-            'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075'],
-            'circle-radius': 20
-        }
-    });
+                // 단순화 클러스터
+                map.addLayer({
+                    id: 'clusters-simple',
+                    type: 'circle',
+                    source: 'heritage-simple',
+                    filter: ['has', 'point_count'],
+                    maxzoom: 13,
+                    paint: {
+                        'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075'],
+                        'circle-radius': 20
+                    }
+                });
 
-    // [레이어 A-2] 단순화 폴리곤 (줌 11~13 사이에서 미리 보여주기)
-    map.addLayer({
-        id: 'poly-simple',
-        type: 'fill',
-        source: 'heritage-simple',
-        minzoom: 10,
-        maxzoom: 13,
-        paint: {
-            'fill-color': '#cccccc',
-            'fill-opacity': 0.4
-        }
-    });
+                // 단순화 폴리곤
+                map.addLayer({
+                    id: 'poly-simple',
+                    type: 'fill',
+                    source: 'heritage-simple',
+                    minzoom: 10,
+                    maxzoom: 13.1, // 전환 시 깜빡임 방지를 위해 0.1 여유
+                    paint: {
+                        'fill-color': '#cccccc',
+                        'fill-opacity': 0.4,
+                        'fill-outline-color': '#999999'
+                    }
+                });
 
-    // ---------------------------------------------------------
-    // 2. 배경에서 원본 파일 서서히 로드 (사용자 몰래 준비)
-    // ---------------------------------------------------------
-    fetch('input.json')
-        .then(res => res.json())
-        .then(fullData => {
-            console.log("원본 데이터 로드 완료 (13MB)");
-            
-            map.addSource('heritage-full', {
-                type: 'geojson',
-                data: fullData
-            });
+                loader.innerText = "상세 데이터 로딩 중 (13MB)...";
 
-            // [레이어 B] 원본 정밀 폴리곤 (줌 13부터 등장)
-            map.addLayer({
-                id: 'poly-full',
-                type: 'fill',
-                source: 'heritage-full',
-                minzoom: 13, // 줌 13 이상에서만 활성화
-                paint: {
-                    'fill-color': [
-                        'match', ['get', '종목코드'],
-                        11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 
-                        14, '#4363d8', 15, '#f58231', 16, '#911eb4', 18, '#888888', '#cccccc'
-                    ],
-                    'fill-opacity': 0.7,
-                    'fill-outline-color': '#ffffff'
-                }
-            });
+                // 2. 배경에서 원본 파일 로드
+                const fullRes = await fetch('input.json');
+                const fullData = await fullRes.json();
+                
+                console.log("원본 데이터 로드 완료");
+
+                map.addSource('heritage-full', {
+                    type: 'geojson',
+                    data: fullData
+                });
+
+                map.addLayer({
+                    id: 'poly-full',
+                    type: 'fill',
+                    source: 'heritage-full',
+                    minzoom: 13, 
+                    paint: {
+                        'fill-color': [
+                            'match', ['get', '종목코드'],
+                            11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 
+                            14, '#4363d8', 15, '#f58231', 16, '#911eb4', 18, '#888888', '#cccccc'
+                        ],
+                        'fill-opacity': 0.7,
+                        'fill-outline-color': '#ffffff'
+                    }
+                });
+
+                loader.style.display = 'none'; // 모든 로드 완료 시 로더 숨김
+
+            } catch (err) {
+                console.error("로딩 중 에러:", err);
+                loader.innerText = "에러 발생: " + err.message;
+            }
         });
-});
-    
     </script>
 </body>
 </html>
-
-
-
-
-
-
