@@ -39,124 +39,112 @@
             zoom: 10
         });
 
-        map.on('load', async () => {
+map.on('load', async () => {
     try {
-        // 1. 데이터 로드 (input1.json 활용)
         const response = await fetch('input1.json');
-        const originalData = await response.json();
+        const data = await response.json();
 
-        // 2. [핵심] 모든 폴리곤을 중심점(Point) 데이터로 변환
-        const centroidData = {
-            type: "FeatureCollection",
-            features: originalData.features.map(f => {
-                let coord;
-                const type = f.geometry.type;
+        // [해결책 1] 폴리곤을 강제로 'Point' 데이터로 변환
+        const pointFeatures = data.features.map(f => {
+            let coords;
+            if (f.geometry.type === 'Point') {
+                coords = f.geometry.coordinates;
+            } else {
+                // 폴리곤의 첫 번째 좌표를 추출 (가장 확실한 방법)
+                coords = f.geometry.type === 'Polygon' 
+                    ? f.geometry.coordinates[0][0] 
+                    : f.geometry.coordinates[0][0][0];
+            }
+            return {
+                type: 'Feature',
+                properties: f.properties,
+                geometry: { type: 'Point', coordinates: coords }
+            };
+        });
 
-                // 폴리곤 종류에 상관없이 첫 번째 좌표를 중심점 대용으로 추출
-                if (type === 'Point') {
-                    coord = f.geometry.coordinates;
-                } else if (type === 'Polygon') {
-                    coord = f.geometry.coordinates[0][0];
-                } else if (type === 'MultiPolygon') {
-                    coord = f.geometry.coordinates[0][0][0];
-                }
-
-                return {
-                    type: "Feature",
-                    properties: f.properties, // 종목코드 등 속성 유지
-                    geometry: { type: "Point", coordinates: coord }
-                };
-            })
-        };
-
-        // 3. 변환된 점 데이터를 클러스터 소스로 등록
-        map.addSource('heritage-points', {
+        // [해결책 2] 소스 등록 시 클러스터 옵션 강화
+        map.addSource('heritage-cluster-source', {
             type: 'geojson',
-            data: centroidData,
+            data: { type: 'FeatureCollection', features: pointFeatures },
             cluster: true,
-            clusterMaxZoom: 12,
-            clusterRadius: 50
+            clusterMaxZoom: 14, // 줌 14까지 클러스터 유지
+            clusterRadius: 50   // 50픽셀 이내 데이터는 하나로 뭉침
         });
 
-        // 4. 원본 폴리곤 데이터를 상세 소스로 등록
-        map.addSource('heritage-polygons', {
-            type: 'geojson',
-            data: originalData
-        });
-
-        // [레이어 A-1] 클러스터 원 (줌 0 ~ 13)
+        // 1. 클러스터 원 레이어
         map.addLayer({
             id: 'clusters',
             type: 'circle',
-            source: 'heritage-points',
+            source: 'heritage-cluster-source',
             filter: ['has', 'point_count'],
             maxzoom: 13,
             paint: {
-                'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
-                'circle-radius': ['step', ['get', 'point_count'], 20, 50, 25, 200, 30],
+                'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 10, '#f1f075', 30, '#f28cb1'],
+                'circle-radius': ['step', ['get', 'point_count'], 20, 10, 30, 30, 40],
                 'circle-stroke-width': 2,
                 'circle-stroke-color': '#fff'
             }
         });
 
-        // [레이어 A-2] 클러스터 숫자 (줌 0 ~ 13)
+        // 2. 클러스터 숫자 레이어 (가장 빈번한 에러 지점)
         map.addLayer({
             id: 'cluster-count',
             type: 'symbol',
-            source: 'heritage-points',
+            source: 'heritage-cluster-source',
             filter: ['has', 'point_count'],
             maxzoom: 13,
             layout: {
                 'text-field': '{point_count}',
-                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                'text-size': 12,
-                'text-allow-overlap': true
+                'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+                'text-size': 14,
+                // [중요] 글자가 겹쳐도 강제로 보여주게 설정
+                'text-allow-overlap': true,
+                'text-ignore-placement': true
+            },
+            paint: {
+                'text-color': '#000000'
             }
         });
 
-        // [레이어 A-3] 개별 점 (줌 0 ~ 13)
+        // 3. 클러스터되지 않은 개별 점
         map.addLayer({
             id: 'unclustered-point',
             type: 'circle',
-            source: 'heritage-points',
+            source: 'heritage-cluster-source',
             filter: ['!', ['has', 'point_count']],
             maxzoom: 13,
             paint: {
-                'circle-color': [
-                    'match', ['get', '종목코드'],
-                    '11', '#e6194b', '12', '#3cb44b', '13', '#ffe119', '18', '#888888', '#51bbd6'
-                ],
+                'circle-color': '#e6194b',
                 'circle-radius': 6,
-                'circle-stroke-width': 1.5,
+                'circle-stroke-width': 2,
                 'circle-stroke-color': '#fff'
             }
         });
 
-        // [레이어 B] 원본 상세 폴리곤 (줌 13 이상)
+        // 원본 폴리곤용 소스는 별도로 추가 (줌 13 이후용)
+        map.addSource('heritage-full', { type: 'geojson', data: data });
         map.addLayer({
-            id: 'poly-detail',
+            id: 'poly-full',
             type: 'fill',
-            source: 'heritage-polygons',
+            source: 'heritage-full',
             minzoom: 13,
             paint: {
-                'fill-color': [
-                    'match', ['get', '종목코드'],
-                    '11', '#e6194b', '12', '#3cb44b', '13', '#ffe119', '18', '#888888', '#51bbd6'
-                ],
-                'fill-opacity': 0.6,
-                'fill-outline-color': '#ffffff'
+                'fill-color': '#0080ff',
+                'fill-opacity': 0.5,
+                'fill-outline-color': '#fff'
             }
         });
 
-        if (typeof loader !== 'undefined') loader.style.display = 'none';
+        if (document.getElementById('loader')) document.getElementById('loader').style.display = 'none';
 
     } catch (err) {
-        console.error("데이터 처리 중 에러 발생:", err);
+        console.error("클러스터 생성 실패:", err);
     }
 });
     </script>
 </body>
 </html>
+
 
 
 
