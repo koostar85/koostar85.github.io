@@ -35,94 +35,83 @@
             zoom: 7
         });
 
+
         map.on('load', async () => {
-            try {
-                // 1. 데이터 가져오기
-                const response = await fetch('input.json');
-                if (!response.ok) throw new Error("파일 로드 실패");
-                const data = await response.json();
-                
-                loader.innerText = "지도에 그리는 중...";
+    // 1. 우선 가벼운 단순화 파일만 즉시 로드 (사용자 대기 시간 단축)
+    const simpleRes = await fetch('input_simple.json');
+    const simpleData = await simpleRes.json();
 
-                // 2. 소스 추가 (클러스터링 비활성화로 우선 테스트)
-                // 13MB 폴리곤 데이터는 클러스터링 계산 시 멈출 수 있으므로 일단 false로 테스트 권장
-                map.addSource('heritage-source', {
-                    type: 'geojson',
-                    data: data,
-                    cluster: false 
-                });
-// 1. 소스 수정 (클러스터 다시 활성화)
-map.getSource('heritage-source').setData(data); // 데이터 재설정
-map.getSource('heritage-source').cluster = true; // 클러스터 켜기
+    // [소스 A] 단순화 데이터 (줌 0 ~ 13용)
+    map.addSource('heritage-simple', {
+        type: 'geojson',
+        data: simpleData,
+        cluster: true,
+        clusterMaxZoom: 12,
+        clusterRadius: 50
+    });
 
-// 2. [멀리서] 클러스터 원 (데이터가 뭉쳐진 상태)
-map.addLayer({
-    id: 'clusters',
-    type: 'circle',
-    source: 'heritage-source',
-    filter: ['has', 'point_count'],
-    maxzoom: 13, // 줌 13까지만 보임
-    paint: {
-        'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
-        'circle-radius': ['step', ['get', 'point_count'], 20, 50, 30, 200, 40],
-        'circle-stroke-width': 2,
-        'circle-stroke-color': '#fff'
-    }
-});
+    // [레이어 A-1] 단순화 클러스터
+    map.addLayer({
+        id: 'clusters-simple',
+        type: 'circle',
+        source: 'heritage-simple',
+        filter: ['has', 'point_count'],
+        maxzoom: 13,
+        paint: {
+            'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075'],
+            'circle-radius': 20
+        }
+    });
 
-// 3. [멀리서] 클러스터 숫자
-map.addLayer({
-    id: 'cluster-count',
-    type: 'symbol',
-    source: 'heritage-source',
-    filter: ['has', 'point_count'],
-    maxzoom: 13,
-    layout: {
-        'text-field': '{point_count}',
-        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-        'text-size': 12
-    }
-});
+    // [레이어 A-2] 단순화 폴리곤 (줌 11~13 사이에서 미리 보여주기)
+    map.addLayer({
+        id: 'poly-simple',
+        type: 'fill',
+        source: 'heritage-simple',
+        minzoom: 10,
+        maxzoom: 13,
+        paint: {
+            'fill-color': '#cccccc',
+            'fill-opacity': 0.4
+        }
+    });
 
-// 4. [중간] 개별 점 (폴리곤의 중심점 자동 생성)
-map.addLayer({
-    id: 'unclustered-point',
-    type: 'circle',
-    source: 'heritage-source',
-    filter: ['!', ['has', 'point_count']],
-    maxzoom: 14,
-    paint: {
-        'circle-color': [
-            'match', ['get', '종목코드'],
-            11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 14, '#4363d8', 
-            15, '#f58231', 16, '#911eb4', 18, '#888888', '#cccccc'
-        ],
-        'circle-radius': 6,
-        'circle-stroke-width': 2,
-        'circle-stroke-color': '#fff'
-    }
-});
+    // ---------------------------------------------------------
+    // 2. 배경에서 원본 파일 서서히 로드 (사용자 몰래 준비)
+    // ---------------------------------------------------------
+    fetch('input.json')
+        .then(res => res.json())
+        .then(fullData => {
+            console.log("원본 데이터 로드 완료 (13MB)");
+            
+            map.addSource('heritage-full', {
+                type: 'geojson',
+                data: fullData
+            });
 
-// 5. [가까이] 실제 폴리곤 (상세 경계)
-map.addLayer({
-    id: 'heritage-polygon',
-    type: 'fill',
-    source: 'heritage-source',
-    minzoom: 12, // 줌 12부터 서서히 나타남
-    paint: {
-        'fill-color': [
-            'match', ['get', '종목코드'],
-            11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 14, '#4363d8', 
-            15, '#f58231', 16, '#911eb4', 18, '#888888', '#cccccc'
-        ],
-        'fill-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0, 14, 0.6],
-        'fill-outline-color': '#ffffff'
-    }
+            // [레이어 B] 원본 정밀 폴리곤 (줌 13부터 등장)
+            map.addLayer({
+                id: 'poly-full',
+                type: 'fill',
+                source: 'heritage-full',
+                minzoom: 13, // 줌 13 이상에서만 활성화
+                paint: {
+                    'fill-color': [
+                        'match', ['get', '종목코드'],
+                        11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 
+                        14, '#4363d8', 15, '#f58231', 16, '#911eb4', 18, '#888888', '#cccccc'
+                    ],
+                    'fill-opacity': 0.7,
+                    'fill-outline-color': '#ffffff'
+                }
+            });
+        });
 });
     
     </script>
 </body>
 </html>
+
 
 
 
