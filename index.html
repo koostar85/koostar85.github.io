@@ -2,182 +2,192 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>국가유산 정밀 지도</title>
+    <title>문화재 공간정보 서비스 - 포인트 클러스터</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/pmtiles@2.x/dist/index.js"></script>
     <style>
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-        #loader {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(255,255,255,0.9); padding: 20px; border-radius: 10px;
-            z-index: 9999; box-shadow: 0 0 10px rgba(0,0,0,0.2); font-weight: bold;
-            text-align: center;
+        #legend {
+            position: absolute; bottom: 30px; left: 10px; z-index: 100;
+            background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2); font-family: sans-serif;
         }
-        .spinner {
-            border: 4px solid #f3f3f3; border-top: 4px solid #3498db;
-            border-radius: 50%; width: 24px; height: 24px;
-            animation: spin 1s linear infinite; margin: 10px auto;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .legend-item { display: flex; align-items: center; font-size: 13px; margin-bottom: 5px; }
+        .legend-item span { width: 14px; height: 14px; margin-right: 8px; border-radius: 2px; display: inline-block; }
+        #search-box { position: absolute; top: 20px; left: 20px; z-index: 1000; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        #search-results { margin-top: 10px; max-height: 200px; overflow-y: auto; background: white; display: none; border-top: 1px solid #eee; }
+        .result-item { padding: 8px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f9f9f9; }
+        .result-item:hover { background: #f0f7ff; }
     </style>
 </head>
 <body>
-
-    <div id="loader">
-        <div class="spinner"></div>
-        <div id="status">데이터 분석 중 (13MB)...</div>
-    </div>
     <div id="map"></div>
+    <div id="search-box">
+        <div style="display: flex; gap: 5px;">
+            <input type="text" id="search-input" placeholder="문화유산명 입력">
+            <button onclick="searchHeritage()">검색</button>
+        </div>
+        <div id="search-results"></div>
+    </div> 
+
+    <div id="legend">
+        <h4>국가유산 범례</h4>
+        <div class="legend-item"><input type="checkbox" id="chk-11" checked onclick="updateFilter()"><span style="background:#e6194b;"></span> 국보 (11)</div>
+        <div class="legend-item"><input type="checkbox" id="chk-12" checked onclick="updateFilter()"><span style="background:#3cb44b;"></span> 보물 (12)</div>
+        <div class="legend-item"><input type="checkbox" id="chk-13" checked onclick="updateFilter()"><span style="background:#ffe119;"></span> 사적 (13)</div>
+        <div class="legend-item"><input type="checkbox" id="chk-14" checked onclick="updateFilter()"><span style="background:#4363d8;"></span> 사적및명승 (14)</div>
+        <div class="legend-item"><input type="checkbox" id="chk-15" checked onclick="updateFilter()"><span style="background:#f58231;"></span> 명승 (15)</div>
+        <div class="legend-item"><input type="checkbox" id="chk-16" checked onclick="updateFilter()"><span style="background:#911eb4;"></span> 천연기념물 (16)</div>
+        <div class="legend-item"><input type="checkbox" id="chk-18" checked onclick="updateFilter()"><span style="background:#888888;"></span> 국가민속문화유산 (18)</div>
+    </div>
 
     <script>
-        const statusEl = document.getElementById('status');
-        const loaderEl = document.getElementById('loader');
+        let protocol = new pmtiles.Protocol();
+        maplibregl.addProtocol("pmtiles", protocol.tile);
 
         const map = new maplibregl.Map({
             container: 'map',
             style: {
                 "version": 8,
-                // [필수] 텍스트 렌더링을 위한 폰트 설정
                 "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
                 "sources": {
                     "osm": { "type": "raster", "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], "tileSize": 256 }
                 },
-                "layers": [{ "id": "osm", "type": "raster", "source": "osm" }]
+                "layers": [{"id": "osm-layer", "type": "raster", "source": "osm"}]
             },
-            center: [127.5, 36.5],
+            center: [127.5, 36.5], 
             zoom: 7
         });
 
+        let searchData = null;
+
         map.on('load', async () => {
             try {
-                statusEl.innerText = "파일 로드 중...";
-                const response = await fetch('input1.json');
-                if (!response.ok) throw new Error("파일을 찾을 수 없습니다.");
-                const data = await response.json();
+                // 1. 포인트 데이터 로드 (input1.json)
+                const res = await fetch('input1.json');
+                searchData = await res.json();
 
-                statusEl.innerText = "데이터 변환 중...";
-
-                // 1. 클러스터용 포인트 데이터 생성 (실시간 변환)
-                const pointFeatures = data.features.map(f => {
-                    let coords;
-                    if (f.geometry.type === 'Point') {
-                        coords = f.geometry.coordinates;
-                    } else {
-                        // Polygon/MultiPolygon의 첫 번째 좌표 추출
-                        coords = f.geometry.type === 'Polygon' 
-                            ? f.geometry.coordinates[0][0] 
-                            : f.geometry.coordinates[0][0][0];
-                    }
-                    return {
-                        type: 'Feature',
-                        properties: f.properties,
-                        geometry: { type: 'Point', coordinates: coords }
-                    };
-                });
-
-                // 2. 소스 등록
-                map.addSource('source-points', {
+                // 포인트 클러스터 전용 소스 추가
+                map.addSource('point-cluster-source', {
                     type: 'geojson',
-                    data: { type: 'FeatureCollection', features: pointFeatures },
+                    data: searchData, // 이미 포인트 데이터이므로 그대로 사용
                     cluster: true,
-                    clusterMaxZoom: 12,
+                    clusterMaxZoom: 10,
                     clusterRadius: 50
                 });
 
-                map.addSource('source-full', {
-                    type: 'geojson',
-                    data: data
+                // [레이어] 줌 11 이하: 클러스터 원
+                map.addLayer({
+                    id: 'cluster-circles',
+                    type: 'circle',
+                    source: 'point-cluster-source',
+                    filter: ['has', 'point_count'],
+                    maxzoom: 11,
+                    paint: {
+                        'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
+                        'circle-radius': ['step', ['get', 'point_count'], 20, 50, 25, 200, 35],
+                        'circle-stroke-width': 2, 'circle-stroke-color': '#fff'
+                    }
                 });
 
-                // 3. 레이어 설정 (하단부터 쌓임)
-
-                // [LOD 1] 상세 폴리곤 (줌 12 이상)
+                // [레이어] 줌 11 이하: 클러스터 숫자
                 map.addLayer({
-                    id: 'layer-polygon',
-                    type: 'fill',
-                    source: 'source-full',
-                    minzoom: 12,
+                    id: 'cluster-counts',
+                    type: 'symbol',
+                    source: 'point-cluster-source',
+                    filter: ['has', 'point_count'],
+                    maxzoom: 11,
+                    layout: {
+                        'text-field': '{point_count}',
+                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                        'text-size': 12
+                    }
+                });
+
+                // [레이어] 줌 11 이하: 개별 포인트 (unclustered)
+                map.addLayer({
+                    id: 'unclustered-point-layer',
+                    type: 'circle',
+                    source: 'point-cluster-source',
+                    filter: ['!', ['has', 'point_count']],
+                    maxzoom: 11,
                     paint: {
-                        'fill-color': [
-                            'match', ['get', '종목코드'],
-                            11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 
-                            14, '#4363d8', 15, '#f58231', 16, '#911eb4', 18, '#888888', '#51bbd6'
-                        ],
-                        'fill-opacity': 0.6,
+                        'circle-color': ['match', ['get', '종목코드'], '11', '#e6194b', '12', '#3cb44b', '13', '#ffe119', '14', '#4363d8', '15', '#f58231', '16', '#911eb4', '18', '#888888', '#cccccc'],
+                        'circle-radius': 6, 'circle-stroke-width': 1.5, 'circle-stroke-color': '#fff'
+                    }
+                });
+
+                // 2. PMTiles 소스 추가 (상세 폴리곤)
+                map.addSource('pmtiles-source', {
+                    type: 'vector',
+                    url: 'pmtiles://my_map.pmtiles'
+                });
+
+                map.addLayer({
+                    id: 'pmtiles-layer',
+                    type: 'fill',
+                    source: 'pmtiles-source',
+                    'source-layer': 'input', 
+                    minzoom: 10, // 줌 10부터 보이기 시작하여 클러스터와 교체
+                    paint: {
+                        'fill-color': ['match', ['get', '종목코드'], '11', '#e6194b', '12', '#3cb44b', '13', '#ffe119', '14', '#4363d8', '15', '#f58231', '16', '#911eb4', '18', '#888888', '#cccccc'],
+                        'fill-opacity': 0.7,
                         'fill-outline-color': '#ffffff'
                     }
                 });
 
-                // [LOD 2] 클러스터 원 (줌 0 ~ 13)
-                map.addLayer({
-                    id: 'layer-clusters',
-                    type: 'circle',
-                    source: 'source-points',
-                    filter: ['has', 'point_count'],
-                    maxzoom: 13,
-                    paint: {
-                        'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
-                        'circle-radius': ['step', ['get', 'point_count'], 20, 50, 25, 200, 30],
-                        'circle-stroke-width': 2,
-                        'circle-stroke-color': '#fff'
-                    }
+                updateFilter(); // 초기 필터 호출
+
+            } catch (err) { console.error("데이터 로드 실패:", err); }
+
+            // 공통 클릭 이벤트 (팝업)
+            map.on('click', (e) => {
+                const features = map.queryRenderedFeatures(e.point, { 
+                    layers: ['pmtiles-layer', 'unclustered-point-layer'] 
                 });
+                if (!features.length) return;
+                
+                const props = features[0].properties;
+                new maplibregl.Popup().setLngLat(e.lngLat)
+                    .setHTML(`<strong>${props['문화유산명']}</strong><br><small>종목코드: ${props['종목코드']}</small>`)
+                    .addTo(map);
+            });
+        });
 
-                // [LOD 3] 클러스터 숫자 (글씨 복구 핵심)
-                map.addLayer({
-                    id: 'layer-cluster-counts',
-                    type: 'symbol',
-                    source: 'source-points',
-                    filter: ['has', 'point_count'],
-                    maxzoom: 13,
-                    layout: {
-                        'text-field': '{point_count}',
-                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                        'text-size': 12,
-                        'text-allow-overlap': true,
-                        'text-ignore-placement': true
-                    },
-                    paint: { 'text-color': '#000000' }
+        // 체크박스 필터 함수
+        function updateFilter() {
+            const enabledCodes = ['11', '12', '13', '14', '15', '16', '18'].filter(c => document.getElementById(`chk-${c}`).checked);
+            const filterExp = enabledCodes.length === 0 ? ['==', ['get', '종목코드'], 'none'] : ['in', ['get', '종목코드'], ['literal', enabledCodes]];
+            
+            if (map.getLayer('pmtiles-layer')) map.setFilter('pmtiles-layer', filterExp);
+            if (map.getLayer('unclustered-point-layer')) map.setFilter('unclustered-point-layer', filterExp);
+        }
+
+        // 검색 기능
+        function searchHeritage() {
+            const keyword = document.getElementById('search-input').value.trim();
+            const resultsDiv = document.getElementById('search-results');
+            if (!keyword || !searchData) return;
+
+            const matches = searchData.features.filter(f => f.properties['문화유산명']?.includes(keyword));
+            resultsDiv.innerHTML = '';
+            if (matches.length > 0) {
+                resultsDiv.style.display = 'block';
+                matches.slice(0, 50).forEach(f => {
+                    const item = document.createElement('div');
+                    item.className = 'result-item';
+                    item.innerText = `📍 ${f.properties['문화유산명']}`;
+                    item.onclick = () => { 
+                        map.flyTo({ center: f.geometry.coordinates, zoom: 15 });
+                        resultsDiv.style.display = 'none'; 
+                    };
+                    resultsDiv.appendChild(item);
                 });
-
-                // [LOD 4] 개별 점 (줌 0 ~ 13)
-                map.addLayer({
-                    id: 'layer-unclustered-points',
-                    type: 'circle',
-                    source: 'source-points',
-                    filter: ['!', ['has', 'point_count']],
-                    maxzoom: 13,
-                    paint: {
-                        'circle-color': [
-                            'match', ['get', '종목코드'],
-                            11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 18, '#888888', '#ffff00'
-                        ],
-                        'circle-radius': 6,
-                        'circle-stroke-width': 2,
-                        'circle-stroke-color': '#fff'
-                    }
-                });
-
-                // [LOD 5] 상세 유산 명칭 (줌 14 이상)
-                map.addLayer({
-                    id: 'layer-labels',
-                    type: 'symbol',
-                    source: 'source-full',
-                    minzoom: 14,
-                    layout: {
-                        'text-field': ['get', '국가유산명'], // JSON 필드명에 맞게 수정 가능
-                        'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
-                        'text-size': 11,
-                        'text-variable-anchor': ['top', 'bottom'],
-                        'text-radial-offset': 0.8
-                    },
-                    paint: {
-                        'text-color': '#333',
-                        'text-
-
-
-
-
-
-
+            } else { resultsDiv.style.display = 'none'; alert("결과 없음"); }
+        }
+    </script>
+</body>
+</html>
