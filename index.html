@@ -39,83 +39,116 @@
             zoom: 7
         });
 
-        map.on('load', async () => {
-            try {
-                // 1. 단순화 파일 로드 (빠른 초기 화면)
-                const simpleRes = await fetch('input_simple.json');
-                const simpleData = await simpleRes.json();
+map.on('load', async () => {
+    try {
+        // 1. 단순화 파일 로드 (줌 0 ~ 13용)
+        const simpleRes = await fetch('input_simple.json');
+        const simpleData = await simpleRes.json();
 
-                map.addSource('heritage-simple', {
-                    type: 'geojson',
-                    data: simpleData,
-                    cluster: true,
-                    clusterMaxZoom: 12,
-                    clusterRadius: 50
-                });
+        map.addSource('heritage-simple', {
+            type: 'geojson',
+            data: simpleData,
+            cluster: true,
+            clusterMaxZoom: 12,
+            clusterRadius: 50
+        });
 
-                // 단순화 클러스터
-                map.addLayer({
-                    id: 'clusters-simple',
-                    type: 'circle',
-                    source: 'heritage-simple',
-                    filter: ['has', 'point_count'],
-                    maxzoom: 13,
-                    paint: {
-                        'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075'],
-                        'circle-radius': 20
-                    }
-                });
-
-                // 단순화 폴리곤
-                map.addLayer({
-                    id: 'poly-simple',
-                    type: 'fill',
-                    source: 'heritage-simple',
-                    minzoom: 10,
-                    maxzoom: 13.1, // 전환 시 깜빡임 방지를 위해 0.1 여유
-                    paint: {
-                        'fill-color': '#cccccc',
-                        'fill-opacity': 0.4,
-                        'fill-outline-color': '#999999'
-                    }
-                });
-
-                loader.innerText = "상세 데이터 로딩 중 (13MB)...";
-
-                // 2. 배경에서 원본 파일 로드
-                const fullRes = await fetch('input.json');
-                const fullData = await fullRes.json();
-                
-                console.log("원본 데이터 로드 완료");
-
-                map.addSource('heritage-full', {
-                    type: 'geojson',
-                    data: fullData
-                });
-
-                map.addLayer({
-                    id: 'poly-full',
-                    type: 'fill',
-                    source: 'heritage-full',
-                    minzoom: 13, 
-                    paint: {
-                        'fill-color': [
-                            'match', ['get', '종목코드'],
-                            11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 
-                            14, '#4363d8', 15, '#f58231', 16, '#911eb4', 18, '#888888', '#cccccc'
-                        ],
-                        'fill-opacity': 0.7,
-                        'fill-outline-color': '#ffffff'
-                    }
-                });
-
-                loader.style.display = 'none'; // 모든 로드 완료 시 로더 숨김
-
-            } catch (err) {
-                console.error("로딩 중 에러:", err);
-                loader.innerText = "에러 발생: " + err.message;
+        // [레이어 1] 클러스터 원 (줌 0 ~ 13)
+        map.addLayer({
+            id: 'clusters-simple',
+            type: 'circle',
+            source: 'heritage-simple',
+            filter: ['has', 'point_count'],
+            maxzoom: 13,
+            paint: {
+                'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
+                'circle-radius': ['step', ['get', 'point_count'], 20, 50, 25, 200, 30],
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#fff'
             }
         });
-    </script>
+
+        // [레이어 2] 클러스터 숫자 (줌 0 ~ 13)
+        map.addLayer({
+            id: 'cluster-count-simple',
+            type: 'symbol',
+            source: 'heritage-simple',
+            filter: ['has', 'point_count'],
+            maxzoom: 13,
+            layout: {
+                'text-field': '{point_count}',
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-size': 12
+            }
+        });
+
+        // [레이어 3] 단순화 기반 개별 점 (줌 10 ~ 13)
+        // 줌 13 이전에도 클러스터 되지 않은 개별 항목을 점으로 표시
+        map.addLayer({
+            id: 'points-simple',
+            type: 'circle',
+            source: 'heritage-simple',
+            filter: ['!', ['has', 'point_count']],
+            maxzoom: 13,
+            paint: {
+                'circle-color': '#888',
+                'circle-radius': 4,
+                'circle-stroke-width': 1,
+                'circle-stroke-color': '#fff'
+            }
+        });
+
+        // 2. 상세 데이터 로드 (줌 13 ~ )
+        const fullRes = await fetch('input.json');
+        const fullData = await fullRes.json();
+        
+        map.addSource('heritage-full', {
+            type: 'geojson',
+            data: fullData
+        });
+
+        // [레이어 4] 원본 데이터 상세 폴리곤 (줌 13 이상)
+        map.addLayer({
+            id: 'poly-full',
+            type: 'fill',
+            source: 'heritage-full',
+            minzoom: 13,
+            paint: {
+                'fill-color': [
+                    'match', ['get', '종목코드'],
+                    11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 
+                    14, '#4363d8', 15, '#f58231', 16, '#911eb4', 18, '#888888', '#cccccc'
+                ],
+                'fill-opacity': 0.6,
+                'fill-outline-color': '#ffffff'
+            }
+        });
+
+        // [레이어 5] 원본 데이터 개별 점 (줌 13 이상)
+        // 폴리곤 중심에 깔끔한 포인트를 추가하여 시인성 확보
+        map.addLayer({
+            id: 'points-full',
+            type: 'circle',
+            source: 'heritage-full',
+            minzoom: 13,
+            paint: {
+                'circle-color': [
+                    'match', ['get', '종목코드'],
+                    11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 14, '#4363d8', 
+                    15, '#f58231', 16, '#911eb4', 18, '#888888', '#cccccc'
+                ],
+                'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 3, 16, 6],
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#fff'
+            }
+        });
+
+        loader.style.display = 'none';
+
+    } catch (err) {
+        console.error("데이터 로드 중 에러:", err);
+    }
+});    </script>
 </body>
 </html>
+
