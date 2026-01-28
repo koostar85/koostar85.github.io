@@ -39,129 +39,125 @@
             zoom: 10
         });
 
-map.on('load', async () => {
+        map.on('load', async () => {
     try {
-        const simpleRes = await fetch('input_simple.json');
-        const simpleData = await simpleRes.json();
+        // 1. 데이터 로드 (input1.json 활용)
+        const response = await fetch('input1.json');
+        const originalData = await response.json();
 
-        // [핵심 수정] 폴리곤 데이터를 클러스터링 가능한 포인트 소스로 등록
-        map.addSource('heritage-simple', {
+        // 2. [핵심] 모든 폴리곤을 중심점(Point) 데이터로 변환
+        const centroidData = {
+            type: "FeatureCollection",
+            features: originalData.features.map(f => {
+                let coord;
+                const type = f.geometry.type;
+
+                // 폴리곤 종류에 상관없이 첫 번째 좌표를 중심점 대용으로 추출
+                if (type === 'Point') {
+                    coord = f.geometry.coordinates;
+                } else if (type === 'Polygon') {
+                    coord = f.geometry.coordinates[0][0];
+                } else if (type === 'MultiPolygon') {
+                    coord = f.geometry.coordinates[0][0][0];
+                }
+
+                return {
+                    type: "Feature",
+                    properties: f.properties, // 종목코드 등 속성 유지
+                    geometry: { type: "Point", coordinates: coord }
+                };
+            })
+        };
+
+        // 3. 변환된 점 데이터를 클러스터 소스로 등록
+        map.addSource('heritage-points', {
             type: 'geojson',
-            data: simpleData,
+            data: centroidData,
             cluster: true,
             clusterMaxZoom: 12,
-            clusterRadius: 50,
-            // 폴리곤의 중심점을 클러스터 기준으로 사용하도록 설정
-            clusterProperties: {
-                "sum": ["+", ["get", "종목코드"]] // 필요한 경우 속성 합산 가능
-            }
+            clusterRadius: 50
         });
 
-        // 1. 클러스터 원 레이어 (가장 상단에 배치)
+        // 4. 원본 폴리곤 데이터를 상세 소스로 등록
+        map.addSource('heritage-polygons', {
+            type: 'geojson',
+            data: originalData
+        });
+
+        // [레이어 A-1] 클러스터 원 (줌 0 ~ 13)
         map.addLayer({
-            id: 'clusters-simple',
+            id: 'clusters',
             type: 'circle',
-            source: 'heritage-simple',
-            filter: ['has', 'point_count'], // 클러스터 된 것만
+            source: 'heritage-points',
+            filter: ['has', 'point_count'],
             maxzoom: 13,
             paint: {
-                'circle-color': [
-                    'step', ['get', 'point_count'],
-                    '#51bbd6', 50, 
-                    '#f1f075', 200, 
-                    '#f28cb1'
-                ],
-                'circle-radius': [
-                    'step', ['get', 'point_count'],
-                    20, 50, 25, 200, 30
-                ],
+                'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
+                'circle-radius': ['step', ['get', 'point_count'], 20, 50, 25, 200, 30],
                 'circle-stroke-width': 2,
                 'circle-stroke-color': '#fff'
             }
         });
 
-        // 2. 클러스터 숫자 레이어
+        // [레이어 A-2] 클러스터 숫자 (줌 0 ~ 13)
         map.addLayer({
-            id: 'cluster-count-simple',
+            id: 'cluster-count',
             type: 'symbol',
-            source: 'heritage-simple',
+            source: 'heritage-points',
             filter: ['has', 'point_count'],
             maxzoom: 13,
             layout: {
                 'text-field': '{point_count}',
                 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                'text-size': 14,
-                'text-allow-overlap': true // 글자가 겹쳐도 보이게 설정
-            },
-            paint: {
-                'text-color': '#000'
+                'text-size': 12,
+                'text-allow-overlap': true
             }
         });
 
-        // 3. 개별 점 레이어 (클러스터 되지 않은 항목)
+        // [레이어 A-3] 개별 점 (줌 0 ~ 13)
         map.addLayer({
-            id: 'unclustered-point-simple',
+            id: 'unclustered-point',
             type: 'circle',
-            source: 'heritage-simple',
+            source: 'heritage-points',
             filter: ['!', ['has', 'point_count']],
             maxzoom: 13,
             paint: {
-                'circle-color': '#e6194b', // 눈에 띄는 빨간색으로 우선 테스트
+                'circle-color': [
+                    'match', ['get', '종목코드'],
+                    11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 18, '#888888', '#51bbd6'
+                ],
                 'circle-radius': 6,
                 'circle-stroke-width': 1.5,
                 'circle-stroke-color': '#fff'
             }
         });
 
-        // -----------------------------------------------------------------
-
-        // 2. 원본 상세 파일 로드 (줌 13 이상 전용)
-        const fullRes = await fetch('input.json');
-        const fullData = await fullRes.json();
-        
-        map.addSource('heritage-full', {
-            type: 'geojson',
-            data: fullData
-        });
-
-        // [레이어 4] 줌 13 이상: 원본 정밀 폴리곤
+        // [레이어 B] 원본 상세 폴리곤 (줌 13 이상)
         map.addLayer({
-            id: 'poly-full',
+            id: 'poly-detail',
             type: 'fill',
-            source: 'heritage-full',
-            minzoom: 13, // 줌 13부터 나타남
+            source: 'heritage-polygons',
+            minzoom: 13,
             paint: {
                 'fill-color': [
                     'match', ['get', '종목코드'],
-                    11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 
-                    14, '#4363d8', 15, '#f58231', 16, '#911eb4', 18, '#888888', '#cccccc'
+                    11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 18, '#888888', '#51bbd6'
                 ],
                 'fill-opacity': 0.6,
                 'fill-outline-color': '#ffffff'
             }
         });
 
-        // [레이어 5] 줌 13 이상: 폴리곤 테두리 (시인성 확보)
-        map.addLayer({
-            id: 'poly-outline-full',
-            type: 'line',
-            source: 'heritage-full',
-            minzoom: 13,
-            paint: {
-                'line-color': '#ffffff',
-                'line-width': 1
-            }
-        });
-
-        loader.style.display = 'none';
+        if (typeof loader !== 'undefined') loader.style.display = 'none';
 
     } catch (err) {
-        console.error("LOD 로딩 에러:", err);
+        console.error("데이터 처리 중 에러 발생:", err);
     }
 });
     </script>
 </body>
 </html>
+
 
 
 
