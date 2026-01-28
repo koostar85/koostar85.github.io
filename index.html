@@ -88,93 +88,87 @@
 
     let searchData = null;
 
-    map.on('load', async () => {
-        try {
-            // [데이터 로드] 포인트 데이터(input1.json)와 검색용(input.json)
-            const [resPoint, resFull] = await Promise.all([
-                fetch('input1.json').then(r => r.json()),
-                fetch('input.json').then(r => r.json())
-            ]);
-            searchData = resFull;
+map.on('load', async () => {
+    try {
+        const response = await fetch('input1.json');
+        const rawData = await response.json();
 
-            // 3. 포인트 클러스터 소스 추가
-            map.addSource('point-source', {
-                type: 'geojson',
-                data: resPoint,
-                cluster: true,
-                clusterMaxZoom: 11,
-                clusterRadius: 50
-            });
+        // [해결책 1] 데이터 무결성 강제 교정 (매우 중요)
+        const validatedFeatures = rawData.features.map(f => {
+            // 좌표가 문자열로 들어오는 경우를 대비해 숫자로 강제 변환
+            const coords = [
+                parseFloat(f.geometry.coordinates[0]),
+                parseFloat(f.geometry.coordinates[1])
+            ];
+            
+            return {
+                type: 'Feature',
+                // 종목코드가 숫자/문자 섞여 있어도 '문자열'로 통일 (match 필터와 일치시키기 위함)
+                properties: {
+                    ...f.properties,
+                    '종목코드': String(f.properties['종목코드'])
+                },
+                geometry: { type: 'Point', coordinates: coords }
+            };
+        });
 
-            // 4. 클러스터 원 레이어 (줌 12 미만)
-            map.addLayer({
-                id: 'cluster-circles',
-                type: 'circle',
-                source: 'point-source',
-                filter: ['has', 'point_count'],
-                maxzoom: 12,
-                paint: {
-                    'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
-                    'circle-radius': ['step', ['get', 'point_count'], 20, 50, 25, 200, 30],
-                    'circle-stroke-width': 2,
-                    'circle-stroke-color': '#fff'
-                }
-            });
+        // [해결책 2] 소스 등록 시 클러스터 옵션 명시
+        map.addSource('point-cluster-source', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: validatedFeatures },
+            cluster: true,
+            clusterMaxZoom: 14, // 줌 14까지 클러스터 유지
+            clusterRadius: 60   // 원이 뭉치는 범위를 조금 넓힘
+        });
 
-            // 5. 클러스터 숫자 레이어 (줌 12 미만)
-            map.addLayer({
-                id: 'cluster-labels',
-                type: 'symbol',
-                source: 'point-source',
-                filter: ['has', 'point_count'],
-                maxzoom: 12,
-                layout: {
-                    'text-field': '{point_count}',
-                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                    'text-size': 12,
-                    'text-allow-overlap': true
-                }
-            });
+        // 1. 클러스터 원 (가시성 확보를 위해 우선 순위 높임)
+        map.addLayer({
+            id: 'cluster-circles',
+            type: 'circle',
+            source: 'point-cluster-source',
+            filter: ['has', 'point_count'],
+            paint: {
+                'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 10, '#f1f075', 50, '#f28cb1'],
+                'circle-radius': ['step', ['get', 'point_count'], 20, 10, 25, 50, 30],
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#fff'
+            }
+        });
 
-            // 6. 개별 포인트 레이어 (클러스터 되지 않은 것)
-            map.addLayer({
-                id: 'unclustered-point',
-                type: 'circle',
-                source: 'point-source',
-                filter: ['!', ['has', 'point_count']],
-                maxzoom: 12,
-                paint: {
-                    'circle-color': ['match', ['get', '종목코드'], '11', '#e6194b', '12', '#3cb44b', '13', '#ffe119', '14', '#4363d8', '15', '#f58231', '16', '#911eb4', '18', '#888888', '#cccccc'],
-                    'circle-radius': 6,
-                    'circle-stroke-width': 1.5,
-                    'circle-stroke-color': '#fff'
-                }
-            });
+        // 2. 클러스터 숫자 (글씨 안나오면 폰트 설정을 단순화)
+        map.addLayer({
+            id: 'cluster-counts',
+            type: 'symbol',
+            source: 'point-cluster-source',
+            filter: ['has', 'point_count'],
+            layout: {
+                'text-field': ['get', 'point_count'],
+                'text-size': 14,
+                'text-allow-overlap': true,
+                'text-ignore-placement': true
+            },
+            paint: { 'text-color': '#000' }
+        });
 
-            // 7. PMTiles 소스 및 상세 폴리곤 레이어 (줌 11 이상)
-            map.addSource('pmtiles-source', {
-                type: 'vector',
-                url: 'pmtiles://my_map.pmtiles'
-            });
+        // 3. 개별 점 (클러스터 안 된 것)
+        map.addLayer({
+            id: 'unclustered-point-layer',
+            type: 'circle',
+            source: 'point-cluster-source',
+            filter: ['!', ['has', 'point_count']],
+            paint: {
+                'circle-color': '#ff0000', // 일단 빨간색으로 나오는지 확인
+                'circle-radius': 6,
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#fff'
+            }
+        });
 
-            map.addLayer({
-                'id': 'pmtiles-layer',
-                'type': 'fill',
-                'source': 'pmtiles-source',
-                'source-layer': 'input', 
-                'minzoom': 11,
-                'paint': {
-                    'fill-color': ['match', ['get', '종목코드'], '11', '#e6194b', '12', '#3cb44b', '13', '#ffe119', '14', '#4363d8', '15', '#f58231', '16', '#911eb4', '18', '#888888', '#cccccc' ],
-                    'fill-opacity': 0.7,
-                    'fill-outline-color': '#ffffff'
-                }
-            });
+    } catch (err) {
+        console.error("데이터 로드 에러:", err);
+    }
+});
 
-            updateFilter(); // 초기 필터 적용
-
-        } catch (e) {
-            console.error("데이터 로딩 중 오류:", e);
-        }
 
         // 클릭 이벤트 통합
         map.on('click', (e) => {
@@ -241,3 +235,4 @@
 </script>
 </body>
 </html>
+
