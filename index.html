@@ -39,18 +39,20 @@
             zoom: 10
         });
 
-map.on('load', async () => {
+
+        map.on('load', async () => {
     try {
+        // 1. 데이터 통합 로드
         const response = await fetch('input1.json');
         const data = await response.json();
 
-        // [해결책 1] 폴리곤을 강제로 'Point' 데이터로 변환
+        // [포인트 변환] 클러스터링을 위한 점 데이터 생성
         const pointFeatures = data.features.map(f => {
             let coords;
             if (f.geometry.type === 'Point') {
                 coords = f.geometry.coordinates;
             } else {
-                // 폴리곤의 첫 번째 좌표를 추출 (가장 확실한 방법)
+                // 폴리곤의 첫 번째 좌표를 추출
                 coords = f.geometry.type === 'Polygon' 
                     ? f.geometry.coordinates[0][0] 
                     : f.geometry.coordinates[0][0][0];
@@ -62,88 +64,75 @@ map.on('load', async () => {
             };
         });
 
-        // [해결책 2] 소스 등록 시 클러스터 옵션 강화
-        map.addSource('heritage-cluster-source', {
+        // 2. 소스 2개 등록 (클러스터용 포인트, 상세용 폴리곤)
+        map.addSource('source-points', {
             type: 'geojson',
             data: { type: 'FeatureCollection', features: pointFeatures },
             cluster: true,
-            clusterMaxZoom: 14, // 줌 14까지 클러스터 유지
-            clusterRadius: 50   // 50픽셀 이내 데이터는 하나로 뭉침
+            clusterMaxZoom: 12,
+            clusterRadius: 50
         });
 
-        // 1. 클러스터 원 레이어
+        map.addSource('source-full', {
+            type: 'geojson',
+            data: data // 원본 폴리곤 데이터
+        });
+
+        // 3. 레이어 배치 (줌 레벨 주의)
+
+        // [멀리서] 클러스터 원
         map.addLayer({
-            id: 'clusters',
+            id: 'layer-clusters',
             type: 'circle',
-            source: 'heritage-cluster-source',
+            source: 'source-points',
             filter: ['has', 'point_count'],
-            maxzoom: 13,
+            maxzoom: 13, // 줌 13까지만 표시
             paint: {
-                'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 10, '#f1f075', 30, '#f28cb1'],
-                'circle-radius': ['step', ['get', 'point_count'], 20, 10, 30, 30, 40],
+                'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
+                'circle-radius': 20,
                 'circle-stroke-width': 2,
                 'circle-stroke-color': '#fff'
             }
         });
 
-        // 2. 클러스터 숫자 레이어 (가장 빈번한 에러 지점)
+        // [가까이서] 상세 폴리곤 (이 부분이 안 나올 확률 큼)
         map.addLayer({
-            id: 'cluster-count',
-            type: 'symbol',
-            source: 'heritage-cluster-source',
-            filter: ['has', 'point_count'],
-            maxzoom: 13,
-            layout: {
-                'text-field': '{point_count}',
-                'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
-                'text-size': 14,
-                // [중요] 글자가 겹쳐도 강제로 보여주게 설정
-                'text-allow-overlap': true,
-                'text-ignore-placement': true
-            },
-            paint: {
-                'text-color': '#000000'
-            }
-        });
-
-        // 3. 클러스터되지 않은 개별 점
-        map.addLayer({
-            id: 'unclustered-point',
-            type: 'circle',
-            source: 'heritage-cluster-source',
-            filter: ['!', ['has', 'point_count']],
-            maxzoom: 13,
-            paint: {
-                'circle-color': '#e6194b',
-                'circle-radius': 6,
-                'circle-stroke-width': 2,
-                'circle-stroke-color': '#fff'
-            }
-        });
-
-        // 원본 폴리곤용 소스는 별도로 추가 (줌 13 이후용)
-        map.addSource('heritage-full', { type: 'geojson', data: data });
-        map.addLayer({
-            id: 'poly-full',
+            id: 'layer-polygon-fill',
             type: 'fill',
-            source: 'heritage-full',
-            minzoom: 13,
+            source: 'source-full',
+            minzoom: 12, // 줌 12부터 나타나기 시작 (클러스터와 겹치는 구간을 줌)
             paint: {
-                'fill-color': '#0080ff',
-                'fill-opacity': 0.5,
-                'fill-outline-color': '#fff'
+                'fill-color': [
+                    'match', ['get', '종목코드'],
+                    11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 18, '#888888', '#51bbd6'
+                ],
+                'fill-opacity': 0.6,
+                'fill-outline-color': '#ffffff'
+            }
+        });
+
+        // [가까이서] 폴리곤 외곽선 (확인용)
+        map.addLayer({
+            id: 'layer-polygon-outline',
+            type: 'line',
+            source: 'source-full',
+            minzoom: 12,
+            paint: {
+                'line-color': '#ffffff',
+                'line-width': 1
             }
         });
 
         if (document.getElementById('loader')) document.getElementById('loader').style.display = 'none';
 
     } catch (err) {
-        console.error("클러스터 생성 실패:", err);
+        console.error("데이터 로드/렌더링 에러:", err);
     }
 });
     </script>
 </body>
 </html>
+
 
 
 
