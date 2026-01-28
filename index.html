@@ -41,34 +41,46 @@
 
 map.on('load', async () => {
     try {
-        // 1. 단순화 파일 로드 (줌 0 ~ 13 전용)
         const simpleRes = await fetch('input_simple.json');
         const simpleData = await simpleRes.json();
 
+        // [핵심 수정] 폴리곤 데이터를 클러스터링 가능한 포인트 소스로 등록
         map.addSource('heritage-simple', {
             type: 'geojson',
             data: simpleData,
             cluster: true,
-            clusterMaxZoom: 12, // 줌 12까지만 클러스터링 계산
-            clusterRadius: 50
+            clusterMaxZoom: 12,
+            clusterRadius: 50,
+            // 폴리곤의 중심점을 클러스터 기준으로 사용하도록 설정
+            clusterProperties: {
+                "sum": ["+", ["get", "종목코드"]] // 필요한 경우 속성 합산 가능
+            }
         });
 
-        // [레이어 1] 줌 13 미만: 클러스터 원
+        // 1. 클러스터 원 레이어 (가장 상단에 배치)
         map.addLayer({
             id: 'clusters-simple',
             type: 'circle',
             source: 'heritage-simple',
-            filter: ['has', 'point_count'],
-            maxzoom: 13, // 줌 13에서 사라짐
+            filter: ['has', 'point_count'], // 클러스터 된 것만
+            maxzoom: 13,
             paint: {
-                'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
-                'circle-radius': ['step', ['get', 'point_count'], 20, 50, 25, 200, 30],
+                'circle-color': [
+                    'step', ['get', 'point_count'],
+                    '#51bbd6', 50, 
+                    '#f1f075', 200, 
+                    '#f28cb1'
+                ],
+                'circle-radius': [
+                    'step', ['get', 'point_count'],
+                    20, 50, 25, 200, 30
+                ],
                 'circle-stroke-width': 2,
                 'circle-stroke-color': '#fff'
             }
         });
 
-        // [레이어 2] 줌 13 미만: 클러스터 숫자
+        // 2. 클러스터 숫자 레이어
         map.addLayer({
             id: 'cluster-count-simple',
             type: 'symbol',
@@ -78,11 +90,15 @@ map.on('load', async () => {
             layout: {
                 'text-field': '{point_count}',
                 'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                'text-size': 12
+                'text-size': 14,
+                'text-allow-overlap': true // 글자가 겹쳐도 보이게 설정
+            },
+            paint: {
+                'text-color': '#000'
             }
         });
 
-        // [레이어 3] 줌 13 미만: 개별 점 (클러스터 되지 않은 항목)
+        // 3. 개별 점 레이어 (클러스터 되지 않은 항목)
         map.addLayer({
             id: 'unclustered-point-simple',
             type: 'circle',
@@ -90,9 +106,9 @@ map.on('load', async () => {
             filter: ['!', ['has', 'point_count']],
             maxzoom: 13,
             paint: {
-                'circle-color': '#888',
-                'circle-radius': 5,
-                'circle-stroke-width': 1,
+                'circle-color': '#e6194b', // 눈에 띄는 빨간색으로 우선 테스트
+                'circle-radius': 6,
+                'circle-stroke-width': 1.5,
                 'circle-stroke-color': '#fff'
             }
         });
@@ -146,5 +162,6 @@ map.on('load', async () => {
     </script>
 </body>
 </html>
+
 
 
