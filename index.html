@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>국가유산 지도 - LOD 최적화</title>
+    <title>국가유산 정밀 지도</title>
     <script src="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.css" rel="stylesheet" />
     <style>
@@ -12,23 +12,33 @@
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: rgba(255,255,255,0.9); padding: 20px; border-radius: 10px;
             z-index: 9999; box-shadow: 0 0 10px rgba(0,0,0,0.2); font-weight: bold;
-            display: block; /* 초기 로더 표시 */
+            text-align: center;
         }
+        .spinner {
+            border: 4px solid #f3f3f3; border-top: 4px solid #3498db;
+            border-radius: 50%; width: 24px; height: 24px;
+            animation: spin 1s linear infinite; margin: 10px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div id="loader">단순화 데이터 로딩 중...</div>
+    <div id="loader">
+        <div class="spinner"></div>
+        <div id="status">데이터 분석 중 (13MB)...</div>
+    </div>
     <div id="map"></div>
 
     <script>
-        const loader = document.getElementById('loader');
+        const statusEl = document.getElementById('status');
+        const loaderEl = document.getElementById('loader');
 
         const map = new maplibregl.Map({
             container: 'map',
             style: {
                 "version": 8,
-                // 폰트 에러 방지를 위해 glyphs 추가
+                // [필수] 텍스트 렌더링을 위한 폰트 설정
                 "glyphs": "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
                 "sources": {
                     "osm": { "type": "raster", "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], "tileSize": 256 }
@@ -36,104 +46,135 @@
                 "layers": [{ "id": "osm", "type": "raster", "source": "osm" }]
             },
             center: [127.5, 36.5],
-            zoom: 10
+            zoom: 7
         });
-
 
         map.on('load', async () => {
-    try {
-        // 1. 데이터 통합 로드
-        const response = await fetch('input1.json');
-        const data = await response.json();
+            try {
+                statusEl.innerText = "파일 로드 중...";
+                const response = await fetch('input1.json');
+                if (!response.ok) throw new Error("파일을 찾을 수 없습니다.");
+                const data = await response.json();
 
-        // [포인트 변환] 클러스터링을 위한 점 데이터 생성
-        const pointFeatures = data.features.map(f => {
-            let coords;
-            if (f.geometry.type === 'Point') {
-                coords = f.geometry.coordinates;
-            } else {
-                // 폴리곤의 첫 번째 좌표를 추출
-                coords = f.geometry.type === 'Polygon' 
-                    ? f.geometry.coordinates[0][0] 
-                    : f.geometry.coordinates[0][0][0];
-            }
-            return {
-                type: 'Feature',
-                properties: f.properties,
-                geometry: { type: 'Point', coordinates: coords }
-            };
-        });
+                statusEl.innerText = "데이터 변환 중...";
 
-        // 2. 소스 2개 등록 (클러스터용 포인트, 상세용 폴리곤)
-        map.addSource('source-points', {
-            type: 'geojson',
-            data: { type: 'FeatureCollection', features: pointFeatures },
-            cluster: true,
-            clusterMaxZoom: 12,
-            clusterRadius: 50
-        });
+                // 1. 클러스터용 포인트 데이터 생성 (실시간 변환)
+                const pointFeatures = data.features.map(f => {
+                    let coords;
+                    if (f.geometry.type === 'Point') {
+                        coords = f.geometry.coordinates;
+                    } else {
+                        // Polygon/MultiPolygon의 첫 번째 좌표 추출
+                        coords = f.geometry.type === 'Polygon' 
+                            ? f.geometry.coordinates[0][0] 
+                            : f.geometry.coordinates[0][0][0];
+                    }
+                    return {
+                        type: 'Feature',
+                        properties: f.properties,
+                        geometry: { type: 'Point', coordinates: coords }
+                    };
+                });
 
-        map.addSource('source-full', {
-            type: 'geojson',
-            data: data // 원본 폴리곤 데이터
-        });
+                // 2. 소스 등록
+                map.addSource('source-points', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: pointFeatures },
+                    cluster: true,
+                    clusterMaxZoom: 12,
+                    clusterRadius: 50
+                });
 
-        // 3. 레이어 배치 (줌 레벨 주의)
+                map.addSource('source-full', {
+                    type: 'geojson',
+                    data: data
+                });
 
-        // [멀리서] 클러스터 원
-        map.addLayer({
-            id: 'layer-clusters',
-            type: 'circle',
-            source: 'source-points',
-            filter: ['has', 'point_count'],
-            maxzoom: 13, // 줌 13까지만 표시
-            paint: {
-                'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
-                'circle-radius': 20,
-                'circle-stroke-width': 2,
-                'circle-stroke-color': '#fff'
-            }
-        });
+                // 3. 레이어 설정 (하단부터 쌓임)
 
-        // [가까이서] 상세 폴리곤 (이 부분이 안 나올 확률 큼)
-        map.addLayer({
-            id: 'layer-polygon-fill',
-            type: 'fill',
-            source: 'source-full',
-            minzoom: 12, // 줌 12부터 나타나기 시작 (클러스터와 겹치는 구간을 줌)
-            paint: {
-                'fill-color': [
-                    'match', ['get', '종목코드'],
-                    11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 18, '#888888', '#51bbd6'
-                ],
-                'fill-opacity': 0.6,
-                'fill-outline-color': '#ffffff'
-            }
-        });
+                // [LOD 1] 상세 폴리곤 (줌 12 이상)
+                map.addLayer({
+                    id: 'layer-polygon',
+                    type: 'fill',
+                    source: 'source-full',
+                    minzoom: 12,
+                    paint: {
+                        'fill-color': [
+                            'match', ['get', '종목코드'],
+                            11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 
+                            14, '#4363d8', 15, '#f58231', 16, '#911eb4', 18, '#888888', '#51bbd6'
+                        ],
+                        'fill-opacity': 0.6,
+                        'fill-outline-color': '#ffffff'
+                    }
+                });
 
-        // [가까이서] 폴리곤 외곽선 (확인용)
-        map.addLayer({
-            id: 'layer-polygon-outline',
-            type: 'line',
-            source: 'source-full',
-            minzoom: 12,
-            paint: {
-                'line-color': '#ffffff',
-                'line-width': 1
-            }
-        });
+                // [LOD 2] 클러스터 원 (줌 0 ~ 13)
+                map.addLayer({
+                    id: 'layer-clusters',
+                    type: 'circle',
+                    source: 'source-points',
+                    filter: ['has', 'point_count'],
+                    maxzoom: 13,
+                    paint: {
+                        'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
+                        'circle-radius': ['step', ['get', 'point_count'], 20, 50, 25, 200, 30],
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#fff'
+                    }
+                });
 
-        if (document.getElementById('loader')) document.getElementById('loader').style.display = 'none';
+                // [LOD 3] 클러스터 숫자 (글씨 복구 핵심)
+                map.addLayer({
+                    id: 'layer-cluster-counts',
+                    type: 'symbol',
+                    source: 'source-points',
+                    filter: ['has', 'point_count'],
+                    maxzoom: 13,
+                    layout: {
+                        'text-field': '{point_count}',
+                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                        'text-size': 12,
+                        'text-allow-overlap': true,
+                        'text-ignore-placement': true
+                    },
+                    paint: { 'text-color': '#000000' }
+                });
 
-    } catch (err) {
-        console.error("데이터 로드/렌더링 에러:", err);
-    }
-});
-    </script>
-</body>
-</html>
+                // [LOD 4] 개별 점 (줌 0 ~ 13)
+                map.addLayer({
+                    id: 'layer-unclustered-points',
+                    type: 'circle',
+                    source: 'source-points',
+                    filter: ['!', ['has', 'point_count']],
+                    maxzoom: 13,
+                    paint: {
+                        'circle-color': [
+                            'match', ['get', '종목코드'],
+                            11, '#e6194b', 12, '#3cb44b', 13, '#ffe119', 18, '#888888', '#ffff00'
+                        ],
+                        'circle-radius': 6,
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#fff'
+                    }
+                });
 
-
+                // [LOD 5] 상세 유산 명칭 (줌 14 이상)
+                map.addLayer({
+                    id: 'layer-labels',
+                    type: 'symbol',
+                    source: 'source-full',
+                    minzoom: 14,
+                    layout: {
+                        'text-field': ['get', '국가유산명'], // JSON 필드명에 맞게 수정 가능
+                        'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+                        'text-size': 11,
+                        'text-variable-anchor': ['top', 'bottom'],
+                        'text-radial-offset': 0.8
+                    },
+                    paint: {
+                        'text-color': '#333',
+                        'text-
 
 
 
