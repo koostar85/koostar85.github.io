@@ -97,7 +97,7 @@ map.on('load', async () => {
             'type': 'fill',
             'source': 'pmtiles-source',
             'source-layer': 'input', 
-            'minzoom': 11, // 줌 11보다 작을 때는 나타나지 않음
+            'maxzoom': 11, // 줌 11보다 작을 때는 나타나지 않음
             'paint': {
                 'fill-color': '#3cb44b',
                 'fill-opacity': 0.6
@@ -111,4 +111,5 @@ map.on('load', async () => {
     </script>
 </body>
 </html>
+
 
