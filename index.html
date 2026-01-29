@@ -214,10 +214,7 @@
             });
             map.on('mouseenter', 'heritage-polygon', () => map.getCanvas().style.cursor = 'pointer');
             map.on('mouseleave', 'heritage-polygon', () => map.getCanvas().style.cursor = '');
-                    } catch (e) {
-            console.error("Data loading error:", e);
-        }
-    });
+                   
             map.on('click', 'unclustered-point', (e) => {
                 const props = e.features[0].properties;
                 const name = props['문화유산명'] || '정보없음';
@@ -228,11 +225,8 @@
                 new maplibregl.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
             });
             map.on('mouseenter', 'unclustered-point', () => map.getCanvas().style.cursor = 'pointer');
-            map.on('mouseleave', 'unclustered-point', () => map.getCanvas().style.cursor = '');
-
-        } catch (e) {
-            console.error("Data loading error:", e);
-        }
+           map.on('mouseleave', 'unclustered-point', () => map.getCanvas().style.cursor = '');
+     
     });
 
     function updateFilter() {
@@ -302,6 +296,7 @@
 </script>
 </body>
 </html>
+
 
 
 
