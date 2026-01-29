@@ -157,7 +157,8 @@ function showPopup(e) {
         if (!hiddenKeys.includes(key)) {
             let displayKey = key;
             let displayValue = props[key];
-            
+
+            if (key === '문화유산코') { displayKey = '문화유산코드'; }
             if (key === '종목코드') {
                 displayKey = '국가지정유산 유형';
                 displayValue = codeMap[displayValue] ? `${codeMap[displayValue]} (${displayValue})` : displayValue;
@@ -272,6 +273,7 @@ function showPopup(e) {
 </script>
 </body>
 </html>
+
 
 
 
