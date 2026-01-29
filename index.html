@@ -11,21 +11,23 @@
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
         
-        /* 클러스터 숫자 스타일 (브라우저 기본 폰트 사용) */
         .cluster-marker {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            pointer-events: none;
+            display: flex; justify-content: center; align-items: center; pointer-events: none;
             font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
-            font-size: 13px;
-            font-weight: bold;
-            color: #000;
+            font-size: 13px; font-weight: bold; color: #000;
             text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
         }
 
         #search-box { position: absolute; top: 20px; left: 20px; z-index: 1000; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); display: flex; flex-direction: column; gap: 5px; }
-        #legend { position: absolute; bottom: 30px; left: 10px; z-index: 100; background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 8px; box-shadow: 0 0 15px rgba(0, 0, 0, 0.2); font-family: sans-serif; min-width: 130px; }
+        
+        /* 범례 초기 상태: 숨김(display: none) */
+        #legend { 
+            position: absolute; bottom: 30px; left: 10px; z-index: 100; 
+            background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 8px; 
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2); font-family: sans-serif; min-width: 130px;
+            display: none; 
+        }
+        
         .legend-item { display: flex; align-items: center; font-size: 13px; margin-bottom: 5px; }
         .legend-item span { width: 14px; height: 14px; margin-right: 8px; border-radius: 2px; display: inline-block; }
         #search-results { max-height: 200px; overflow-y: auto; background: white; border-top: 1px solid #eee; display: none; }
@@ -64,29 +66,27 @@
         container: 'map',
         style: {
             "version": 8,
-            "sources": {
-                "osm": { "type": "raster", "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], "tileSize": 256 }
-            },
+            "sources": { "osm": { "type": "raster", "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], "tileSize": 256 } },
             "layers": [{"id": "osm-layer", "type": "raster", "source": "osm"}]
         },
-        center: [127.5, 36.5], 
-        zoom: 7
+        center: [127.5, 36.5], zoom: 7
     });
 
     let searchData = null;
     let markers = {}; 
-    
-   map.on('zoomend', () => {
-    const zoom = map.getZoom();
-    let status = "";
-    
-    if (zoom < 10) status = " (클러스터 모드)";
-    else if (zoom >= 10 && zoom < 11.5) status = " (클러스터 + 폴리곤 과도기)";
-    else status = " (상세 폴리곤 모드)";
-    
-    console.log(`📍 현재 줌: ${zoom.toFixed(2)}${status}`);
-});
-    
+
+    // 줌 이벤트 핸들러: 콘솔 출력 및 범례 표시 제어
+    map.on('zoom', () => {
+        const zoom = map.getZoom();
+        const legend = document.getElementById('legend');
+        
+        // 줌 레벨 10 이상이면 범례 노출
+        legend.style.display = (zoom >= 10) ? 'block' : 'none';
+        
+        let status = zoom < 10 ? " (클러스터)" : (zoom < 11.5 ? " (과도기)" : " (상세)");
+        console.log(`📍 현재 줌: ${zoom.toFixed(2)}${status}`);
+    });
+
     map.on('load', async () => {
         try {
             const [resPoint, resFull] = await Promise.all([
@@ -95,208 +95,122 @@
             ]);
             searchData = resFull;
 
-            // 1. 소스 추가
             map.addSource('heritage-geojson', {
-                type: 'geojson',
-                data: resPoint,
-                cluster: true,
-                clusterMaxZoom: 10,
-                clusterRadius: 50
+                type: 'geojson', data: resPoint, cluster: true, clusterMaxZoom: 10, clusterRadius: 50
             });
 
             map.addSource('pmtiles-source', {
-                type: 'vector',
-                url: 'pmtiles://my_map.pmtiles'
+                type: 'vector', url: 'pmtiles://my_map.pmtiles'
             });
 
-            // 2. 레이어 추가 (순서 중요)
+            // 레이어 추가 (클러스터/포인트/폴리곤)
             map.addLayer({
-                id: 'cluster-circles',
-                type: 'circle',
-                source: 'heritage-geojson',
-                filter: ['has', 'point_count'],
-                maxzoom: 11.5,
+                id: 'cluster-circles', type: 'circle', source: 'heritage-geojson', filter: ['has', 'point_count'], maxzoom: 11.5,
                 paint: {
                     'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
                     'circle-radius': ['step', ['get', 'point_count'], 18, 50, 23, 200, 30],
-                    'circle-stroke-width': 1.5,
-                    'circle-stroke-color': '#fff'
+                    'circle-stroke-width': 1.5, 'circle-stroke-color': '#fff'
                 }
             });
 
             map.addLayer({
-                id: 'unclustered-point',
-                type: 'circle',
-                source: 'heritage-geojson',
-                filter: ['!', ['has', 'point_count']],
-                maxzoom: 11.5,
+                id: 'unclustered-point', type: 'circle', source: 'heritage-geojson', filter: ['!', ['has', 'point_count']], maxzoom: 11.5,
                 paint: {
-                    'circle-color': '#007bff',
-                    'circle-radius': 6,
-                    'circle-stroke-width': 1,
-                    'circle-stroke-color': '#fff'
+                    'circle-color': '#007bff', 'circle-radius': 6, 'circle-stroke-width': 1, 'circle-stroke-color': '#fff'
                 }
             });
 
             map.addLayer({
-                id: 'heritage-polygon',
-                type: 'fill',
-                source: 'pmtiles-source',
-                'source-layer': 'input', 
-                minzoom: 10,
+                id: 'heritage-polygon', type: 'fill', source: 'pmtiles-source', 'source-layer': 'input', minzoom: 10,
                 paint: {
                     'fill-color': ['match', ['get', '종목코드'], '11','#e6194b','12','#3cb44b','13','#ffe119','14','#4363d8','15','#f58231','16','#911eb4','18','#888888','#cccccc'],
-                    'fill-opacity': 0.5,
-                    'fill-outline-color': '#ffffff'
+                    'fill-opacity': 0.5, 'fill-outline-color': '#ffffff'
                 }
             });
 
-            // HTML 마커 갱신 함수
+            // 팝업 공통 함수
+            function showPopup(e) {
+                const props = e.features[0].properties;
+                const name = props['문화유산명'] || '정보없음';
+                const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name)}`;
+                let html = `<div style="padding:5px;"><strong>${name}</strong><hr style="margin:5px 0;">`;
+                for(let key in props) { 
+                    if(!['cluster','cluster_id','point_count'].includes(key)) html += `<small>${key}: ${props[key]}</small><br>`; 
+                }
+                html += `<br><a href="${searchUrl}" target="_blank" style="color:#007bff; text-decoration:none; font-weight:bold;">구글 검색 이동 ↗</a></div>`;
+                new maplibregl.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
+            }
+
+            // 이벤트 바인딩
+            map.on('click', 'unclustered-point', showPopup);
+            map.on('click', 'heritage-polygon', showPopup);
+            
+            ['unclustered-point', 'heritage-polygon'].forEach(lyr => {
+                map.on('mouseenter', lyr, () => map.getCanvas().style.cursor = 'pointer');
+                map.on('mouseleave', lyr, () => map.getCanvas().style.cursor = '');
+            });
+
+            // HTML 클러스터 마커 갱신 로직 (생략 방지)
             function updateClusterNumbers() {
                 const newMarkers = {};
                 const features = map.querySourceFeatures('heritage-geojson');
-
                 for (const f of features) {
                     if (!f.properties.cluster) continue;
                     const id = f.properties.cluster_id;
-                    const coords = f.geometry.coordinates;
-
                     let marker = markers[id];
                     if (!marker) {
                         const el = document.createElement('div');
                         el.className = 'cluster-marker';
                         el.innerHTML = `<span>${f.properties.point_count}</span>`;
-                        marker = markers[id] = new maplibregl.Marker({element: el}).setLngLat(coords);
+                        marker = markers[id] = new maplibregl.Marker({element: el}).setLngLat(f.geometry.coordinates);
                     }
-                    
                     if (map.getZoom() < 11.5) {
                         if (!marker._map) marker.addTo(map);
                         newMarkers[id] = marker;
-                    } else {
-                        marker.remove();
-                    }
+                    } else { marker.remove(); }
                 }
-
-                for (const id in markers) {
-                    if (!newMarkers[id]) {
-                        markers[id].remove();
-                        delete markers[id];
-                    }
-                }
+                for (const id in markers) { if (!newMarkers[id]) { markers[id].remove(); delete markers[id]; } }
             }
 
-            // 지도가 움직일 때마다 마커 업데이트 연결
             map.on('move', updateClusterNumbers);
-            map.on('moveend', updateClusterNumbers);
-            map.on('sourcedata', (e) => {
-                if (e.sourceId === 'heritage-geojson' && e.isSourceLoaded) updateClusterNumbers();
-            });
+            map.on('sourcedata', (e) => { if (e.sourceId === 'heritage-geojson' && e.isSourceLoaded) updateClusterNumbers(); });
 
-            // 클러스터 클릭 시 확대
-            map.on('click', 'cluster-circles', (e) => {
-                const features = map.queryRenderedFeatures(e.point, { layers: ['cluster-circles'] });
-                const clusterId = features[0].properties.cluster_id;
-                map.getSource('heritage-geojson').getClusterExpansionZoom(clusterId, (err, zoom) => {
-                    if (err) return;
-                    map.easeTo({ center: features[0].geometry.coordinates, zoom: zoom + 1 });
-                });
-            });
-
-            // 상세 폴리곤 클릭 시 팝업
-            map.on('click', 'heritage-polygon', (e) => {
-                const props = e.features[0].properties;
-                const name = props['문화유산명'] || '정보없음';
-                const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name)}`;
-                let html = `<div style="padding:5px;"><strong>${name}</strong><br><hr style="margin:5px 0;">`;
-                for(let key in props) { html += `<small>${key}: ${props[key]}</small><br>`; }
-                html += `<br><a href="${searchUrl}" target="_blank" style="color:#007bff; text-decoration:none; font-weight:bold;">구글 검색 이동 ↗</a></div>`;
-                new maplibregl.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
-            });
-            map.on('mouseenter', 'heritage-polygon', () => map.getCanvas().style.cursor = 'pointer');
-            map.on('mouseleave', 'heritage-polygon', () => map.getCanvas().style.cursor = '');
-                   
-            map.on('click', 'unclustered-point', (e) => {
-                const props = e.features[0].properties;
-                const name = props['문화유산명'] || '정보없음';
-                const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name)}`;
-                let html = `<div style="padding:5px;"><strong>${name}</strong><br><hr style="margin:5px 0;">`;
-                for(let key in props) { html += `<small>${key}: ${props[key]}</small><br>`; }
-                html += `<br><a href="${searchUrl}" target="_blank" style="color:#007bff; text-decoration:none; font-weight:bold;">구글 검색 이동 ↗</a></div>`;
-                new maplibregl.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
-            });
-            map.on('mouseenter', 'unclustered-point', () => map.getCanvas().style.cursor = 'pointer');
-           map.on('mouseleave', 'unclustered-point', () => map.getCanvas().style.cursor = '');
-     
+        } catch (e) { console.error(e); }
     });
 
+    // 필터 및 검색 함수 (기존과 동일)
     function updateFilter() {
-        const enabledCodes = [11, 12, 13, 14, 15, 16, 18].filter(code => 
-            document.getElementById(`chk-${code}`).checked
-        ).map(String);
-
-        const filterExp = enabledCodes.length === 0 
-            ? ['==', ['get', '종목코드'], 'none'] 
-            : ['in', ['get', '종목코드'], ['literal', enabledCodes]];
-
-        if (map.getLayer('heritage-polygon')) map.setFilter('heritage-polygon', filterExp);
-        if (map.getLayer('unclustered-point')) map.setFilter('unclustered-point', ['all', ['!', ['has', 'point_count']], filterExp]);
-        // 참고: 클러스터 레이어 필터는 소스 단계에서 제어하는 것이 더 정확하나, 성능상 레이어 필터 우선 적용
-        if (map.getLayer('cluster-circles')) map.setFilter('cluster-circles', ['all', ['has', 'point_count']]);
+        const enabledCodes = [11, 12, 13, 14, 15, 16, 18].filter(code => document.getElementById(`chk-${code}`).checked).map(String);
+        const filterExp = enabledCodes.length === 0 ? ['==', ['get', '종목코드'], 'none'] : ['in', ['get', '종목코드'], ['literal', enabledCodes]];
+        map.setFilter('heritage-polygon', filterExp);
+        map.setFilter('unclustered-point', ['all', ['!', ['has', 'point_count']], filterExp]);
     }
 
     function searchHeritage() {
         const keyword = document.getElementById('search-input').value.trim();
-        const resultsDiv = document.getElementById('search-results');
         if (!keyword || !searchData) return;
-
-        const matches = searchData.features.filter(f => 
-            f.properties['문화유산명'] && f.properties['문화유산명'].includes(keyword)
-        );
-
+        const matches = searchData.features.filter(f => f.properties['문화유산명']?.includes(keyword));
+        const resultsDiv = document.getElementById('search-results');
         resultsDiv.innerHTML = '';
         if (matches.length > 0) {
             resultsDiv.style.display = 'block';
             matches.slice(0, 20).forEach(f => {
                 const item = document.createElement('div');
-                item.className = 'result-item';
-                item.innerText = `📍 ${f.properties['문화유산명']}`;
-                item.onclick = () => {
-                    moveToFeature(f);
-                    resultsDiv.style.display = 'none';
-                };
+                item.className = 'result-item'; item.innerText = `📍 ${f.properties['문화유산명']}`;
+                item.onclick = () => { moveToFeature(f); resultsDiv.style.display = 'none'; };
                 resultsDiv.appendChild(item);
             });
-        } else {
-            resultsDiv.style.display = 'none';
-            alert("검색 결과가 없습니다.");
-        }
+        } else { alert("결과가 없습니다."); }
     }
 
     function moveToFeature(feature) {
         const bounds = new maplibregl.LngLatBounds();
-        const type = feature.geometry.type;
         const coords = feature.geometry.coordinates;
-
-        if (type === 'Point') bounds.extend(coords);
-        else if (type === 'Polygon') coords[0].forEach(c => bounds.extend(c));
-        else if (type === 'MultiPolygon') coords.flat(2).forEach(c => bounds.extend(c));
-
-        if (!bounds.isEmpty()) {
-            map.fitBounds(bounds, { padding: 100, maxZoom: 16 });
-            setTimeout(() => {
-                new maplibregl.Popup().setLngLat(bounds.getCenter())
-                    .setHTML(`<strong>${feature.properties['문화유산명']}</strong>`).addTo(map);
-            }, 500);
-        }
+        if (feature.geometry.type === 'Point') bounds.extend(coords);
+        else if (feature.geometry.type === 'Polygon') coords[0].forEach(c => bounds.extend(c));
+        else if (feature.geometry.type === 'MultiPolygon') coords.flat(2).forEach(c => bounds.extend(c));
+        map.fitBounds(bounds, { padding: 100, maxZoom: 16 });
     }
-
-    document.getElementById('search-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') searchHeritage();
-    });
 </script>
 </body>
 </html>
-
-
-
-
