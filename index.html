@@ -212,8 +212,14 @@
                 html += `<br><a href="${searchUrl}" target="_blank" style="color:#007bff; text-decoration:none; font-weight:bold;">구글 검색 이동 ↗</a></div>`;
                 new maplibregl.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
             });
+            map.on('mouseenter', 'heritage-polygon', () => map.getCanvas().style.cursor = 'pointer');
+            map.on('mouseleave', 'heritage-polygon', () => map.getCanvas().style.cursor = '');
+                    } catch (e) {
+            console.error("Data loading error:", e);
+        }
+    });
             map.on('click', 'unclustered-point', (e) => {
-                                const props = e.features[0].properties;
+                const props = e.features[0].properties;
                 const name = props['문화유산명'] || '정보없음';
                 const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name)}`;
                 let html = `<div style="padding:5px;"><strong>${name}</strong><br><hr style="margin:5px 0;">`;
@@ -221,8 +227,6 @@
                 html += `<br><a href="${searchUrl}" target="_blank" style="color:#007bff; text-decoration:none; font-weight:bold;">구글 검색 이동 ↗</a></div>`;
                 new maplibregl.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
             });
-            map.on('mouseenter', 'heritage-polygon', () => map.getCanvas().style.cursor = 'pointer');
-            map.on('mouseleave', 'heritage-polygon', () => map.getCanvas().style.cursor = '');
             map.on('mouseenter', 'unclustered-point', () => map.getCanvas().style.cursor = 'pointer');
             map.on('mouseleave', 'unclustered-point', () => map.getCanvas().style.cursor = '');
 
@@ -298,5 +302,6 @@
 </script>
 </body>
 </html>
+
 
 
