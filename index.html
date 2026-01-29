@@ -75,7 +75,18 @@
 
     let searchData = null;
     let markers = {}; 
-
+    
+   map.on('zoomend', () => {
+    const zoom = map.getZoom();
+    let status = "";
+    
+    if (zoom < 10) status = " (클러스터 모드)";
+    else if (zoom >= 10 && zoom < 11.5) status = " (클러스터 + 폴리곤 과도기)";
+    else status = " (상세 폴리곤 모드)";
+    
+    console.log(`📍 현재 줌: ${zoom.toFixed(2)}${status}`);
+});
+    
     map.on('load', async () => {
         try {
             const [resPoint, resFull] = await Promise.all([
@@ -277,3 +288,4 @@
 </script>
 </body>
 </html>
+
