@@ -127,7 +127,15 @@
                     'fill-opacity': 0.5, 'fill-outline-color': '#ffffff'
                 }
             });
-
+            
+        map.on('click', 'cluster-circles', (e) => {
+            const features = map.queryRenderedFeatures(e.point, { layers: ['cluster-circles'] });
+            const clusterId = features[0].properties.cluster_id;
+            map.getSource('heritage-geojson').getClusterExpansionZoom(clusterId, (err, zoom) => {
+                if (err) return;
+                map.easeTo({ center: features[0].geometry.coordinates, zoom: zoom + 1 });
+            });
+        });
             // 팝업 공통 함수
             function showPopup(e) {
                 const props = e.features[0].properties;
@@ -214,3 +222,4 @@
 </script>
 </body>
 </html>
+
