@@ -193,33 +193,58 @@
         map.setFilter('heritage-polygon', filterExp);
         map.setFilter('unclustered-point', ['all', ['!', ['has', 'point_count']], filterExp]);
     }
-
+   // 검색 및 이동
     function searchHeritage() {
         const keyword = document.getElementById('search-input').value.trim();
-        if (!keyword || !searchData) return;
-        const matches = searchData.features.filter(f => f.properties['문화유산명']?.includes(keyword));
         const resultsDiv = document.getElementById('search-results');
+        if (!keyword || !searchData) return;
+
+        const matches = searchData.features.filter(f => 
+            f.properties['문화유산명'] && f.properties['문화유산명'].includes(keyword)
+        );
+
         resultsDiv.innerHTML = '';
         if (matches.length > 0) {
             resultsDiv.style.display = 'block';
-            matches.slice(0, 20).forEach(f => {
+            matches.forEach(f => {
                 const item = document.createElement('div');
-                item.className = 'result-item'; item.innerText = `📍 ${f.properties['문화유산명']}`;
-                item.onclick = () => { moveToFeature(f); resultsDiv.style.display = 'none'; };
+                item.className = 'result-item';
+                item.innerText = `📍 ${f.properties['문화유산명']}`;
+                item.onclick = () => {
+                    moveToFeature(f);
+                    resultsDiv.style.display = 'none';
+                };
                 resultsDiv.appendChild(item);
             });
-        } else { alert("결과가 없습니다."); }
+        } else {
+            resultsDiv.style.display = 'none';
+            alert("검색 결과가 없습니다.");
+        }
     }
 
     function moveToFeature(feature) {
         const bounds = new maplibregl.LngLatBounds();
+        const type = feature.geometry.type;
         const coords = feature.geometry.coordinates;
-        if (feature.geometry.type === 'Point') bounds.extend(coords);
-        else if (feature.geometry.type === 'Polygon') coords[0].forEach(c => bounds.extend(c));
-        else if (feature.geometry.type === 'MultiPolygon') coords.flat(2).forEach(c => bounds.extend(c));
-        map.fitBounds(bounds, { padding: 100, maxZoom: 16 });
+
+        if (type === 'Point') bounds.extend(coords);
+        else if (type === 'Polygon' || type === 'MultiPolygon') {
+            const allCoords = type === 'MultiPolygon' ? coords.flat(2) : coords[0];
+            allCoords.forEach(c => bounds.extend(c));
+        }
+
+        if (!bounds.isEmpty()) {
+            map.fitBounds(bounds, { padding: 80, maxZoom: 17 });
+            new maplibregl.Popup().setLngLat(bounds.getCenter())
+                .setHTML(`<strong>${feature.properties['문화유산명']}</strong>`).addTo(map);
+        }
     }
+
+    document.getElementById('search-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') searchHeritage();
+    });
 </script>
 </body>
 </html>
+
 
