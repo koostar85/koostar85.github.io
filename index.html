@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>문화재 공간정보 서비스</title>
+    <title>국가지정유산 공간정보 서비스</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <script src="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.js"></script>
     <link href="https://unpkg.com/maplibre-gl@3.x/dist/maplibre-gl.css" rel="stylesheet" />
@@ -41,14 +41,14 @@
 
 <div id="search-box">
     <div style="display: flex; gap: 5px;">
-        <input type="text" id="search-input" style="width:180px; padding:7px;" placeholder="문화유산명 입력">
+        <input type="text" id="search-input" style="width:180px; padding:7px;" placeholder="문화유산명 입력 (예: 경복궁)">
         <button onclick="searchHeritage()" style="padding:7px 12px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer;">검색</button>
     </div>
     <div id="search-results"></div>
 </div>
 
 <div id="legend">
-    <h4 style="margin:0 0 10px 0; font-size:14px; border-bottom:1px solid #ddd; padding-bottom:5px;">국가유산 범례</h4>
+    <h4 style="margin:0 0 10px 0; font-size:14px; border-bottom:1px solid #ddd; padding-bottom:5px;">국가지정유산 유형</h4>
     <div class="legend-item"><input type="checkbox" id="chk-11" checked onclick="updateFilter()"><span style="background:#e6194b;"></span> 국보 (11)</div>
     <div class="legend-item"><input type="checkbox" id="chk-12" checked onclick="updateFilter()"><span style="background:#3cb44b;"></span> 보물 (12)</div>
     <div class="legend-item"><input type="checkbox" id="chk-13" checked onclick="updateFilter()"><span style="background:#ffe119;"></span> 사적 (13)</div>
@@ -274,6 +274,7 @@ function showPopup(e) {
 </script>
 </body>
 </html>
+
 
 
 
