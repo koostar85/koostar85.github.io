@@ -114,11 +114,13 @@
                 type: 'symbol',
                 source: 'cluster-source',
                 filter: ['has', 'point_count'],
-                maxzoom: 11,
+                maxzoom: 10,
                 layout: {
                     'text-field': '{point_count}',
                     'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                    'text-size': 12
+                    'text-size': 12,
+                    'text-allow-overlap': true, // 숫자가 겹치더라도 강제로 보여줌
+                    'text-ignore-placement': true
                 }
             });
 
@@ -201,3 +203,4 @@
     </script>
 </body>
 </html>
+
