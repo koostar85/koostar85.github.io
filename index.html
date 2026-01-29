@@ -17,13 +17,13 @@
             justify-content: center;
             align-items: center;
             pointer-events: none;
-            font-family: "Malgun Gothic", sans-serif;
+            font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
             font-size: 13px;
             font-weight: bold;
             color: #000;
+            text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
         }
 
-        /* 검색창 및 범례 스타일 */
         #search-box { position: absolute; top: 20px; left: 20px; z-index: 1000; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); display: flex; flex-direction: column; gap: 5px; }
         #legend { position: absolute; bottom: 30px; left: 10px; z-index: 100; background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 8px; box-shadow: 0 0 15px rgba(0, 0, 0, 0.2); font-family: sans-serif; min-width: 130px; }
         .legend-item { display: flex; align-items: center; font-size: 13px; margin-bottom: 5px; }
@@ -57,7 +57,6 @@
 </div>
 
 <script>
-    // 1. PMTiles 초기화
     let protocol = new pmtiles.Protocol();
     maplibregl.addProtocol("pmtiles", protocol.tile);
 
@@ -75,19 +74,18 @@
     });
 
     let searchData = null;
-    let markers = {}; // 클러스터 숫자 마커 보관용
+    let markers = {}; 
 
     map.on('load', async () => {
         try {
-            // 데이터 병렬 로드
             const [resPoint, resFull] = await Promise.all([
                 fetch('input1.json').then(r => r.json()),
                 fetch('input.json').then(r => r.json())
             ]);
             searchData = resFull;
 
-            // 2. 포인트 클러스터 소스 추가
-            map.addSource('point-source', {
+            // 1. 소스 추가
+            map.addSource('heritage-geojson', {
                 type: 'geojson',
                 data: resPoint,
                 cluster: true,
@@ -95,61 +93,57 @@
                 clusterRadius: 50
             });
 
-            // 3. PMTiles 소스 추가
             map.addSource('pmtiles-source', {
                 type: 'vector',
                 url: 'pmtiles://my_map.pmtiles'
             });
 
-            // 4. 클러스터 원 레이어 (숫자 없이 배경 원만 그림)
+            // 2. 레이어 추가 (순서 중요)
             map.addLayer({
                 id: 'cluster-circles',
                 type: 'circle',
-                source: 'point-source',
+                source: 'heritage-geojson',
                 filter: ['has', 'point_count'],
-                maxzoom: 11,
+                maxzoom: 11.5,
                 paint: {
                     'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
                     'circle-radius': ['step', ['get', 'point_count'], 18, 50, 23, 200, 30],
-                    'circle-opacity': 0.8,
                     'circle-stroke-width': 1.5,
                     'circle-stroke-color': '#fff'
                 }
             });
 
-            // 5. 개별 포인트 레이어
             map.addLayer({
                 id: 'unclustered-point',
                 type: 'circle',
-                source: 'point-source',
+                source: 'heritage-geojson',
                 filter: ['!', ['has', 'point_count']],
-                maxzoom: 11,
+                maxzoom: 11.5,
                 paint: {
                     'circle-color': '#007bff',
-                    'circle-radius': 5,
+                    'circle-radius': 6,
                     'circle-stroke-width': 1,
                     'circle-stroke-color': '#fff'
                 }
             });
 
-            // 6. PMTiles 상세 폴리곤 레이어 (확대 시 노출)
             map.addLayer({
-                id: 'pmtiles-layer',
+                id: 'heritage-polygon',
                 type: 'fill',
                 source: 'pmtiles-source',
                 'source-layer': 'input', 
                 minzoom: 10,
                 paint: {
                     'fill-color': ['match', ['get', '종목코드'], '11','#e6194b','12','#3cb44b','13','#ffe119','14','#4363d8','15','#f58231','16','#911eb4','18','#888888','#cccccc'],
-                    'fill-opacity': 0.6,
+                    'fill-opacity': 0.5,
                     'fill-outline-color': '#ffffff'
                 }
             });
 
-            // 7. [핵심] 폰트 없이 HTML 마커로 숫자 표시
+            // HTML 마커 갱신 함수
             function updateClusterNumbers() {
                 const newMarkers = {};
-                const features = map.querySourceFeatures('point-source');
+                const features = map.querySourceFeatures('heritage-geojson');
 
                 for (const f of features) {
                     if (!f.properties.cluster) continue;
@@ -164,7 +158,6 @@
                         marker = markers[id] = new maplibregl.Marker({element: el}).setLngLat(coords);
                     }
                     
-                    // 줌 11 이상에서는 숫자 숨김 처리 (폴리곤 노출 대비)
                     if (map.getZoom() < 11.5) {
                         if (!marker._map) marker.addTo(map);
                         newMarkers[id] = marker;
@@ -173,7 +166,6 @@
                     }
                 }
 
-                // 화면 밖 클러스터 마커 정리
                 for (const id in markers) {
                     if (!newMarkers[id]) {
                         markers[id].remove();
@@ -182,54 +174,57 @@
                 }
             }
 
-  // 이벤트 설정
-        map.on('click', 'cluster-circles', (e) => {
-            const features = map.queryRenderedFeatures(e.point, { layers: ['cluster-circles'] });
-            const clusterId = features[0].properties.cluster_id;
-            map.getSource('heritage-geojson').getClusterExpansionZoom(clusterId, (err, zoom) => {
-                if (err) return;
-                map.easeTo({ center: features[0].geometry.coordinates, zoom: zoom + 1 });
+            // 지도가 움직일 때마다 마커 업데이트 연결
+            map.on('move', updateClusterNumbers);
+            map.on('moveend', updateClusterNumbers);
+            map.on('sourcedata', (e) => {
+                if (e.sourceId === 'heritage-geojson' && e.isSourceLoaded) updateClusterNumbers();
             });
-        });
 
-        map.on('click', 'heritage-polygon', (e) => {
-            const props = e.features[0].properties;
-            const name = props['문화유산명'] || '정보없음';
-            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name)}`;
-            let html = `<strong>${name}</strong><br><hr>`;
-            for(let key in props) { html += `<small>${key}: ${props[key]}</small><br>`; }
-            html += `<a href="${searchUrl}" target="_blank" style="color:blue; text-decoration:underline;">구글 검색 이동</a>`;
-            new maplibregl.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
-        });
+            // 클러스터 클릭 시 확대
+            map.on('click', 'cluster-circles', (e) => {
+                const features = map.queryRenderedFeatures(e.point, { layers: ['cluster-circles'] });
+                const clusterId = features[0].properties.cluster_id;
+                map.getSource('heritage-geojson').getClusterExpansionZoom(clusterId, (err, zoom) => {
+                    if (err) return;
+                    map.easeTo({ center: features[0].geometry.coordinates, zoom: zoom + 1 });
+                });
+            });
 
-        map.on('mouseenter', 'heritage-polygon', () => map.getCanvas().style.cursor = 'pointer');
-        map.on('mouseleave', 'heritage-polygon', () => map.getCanvas().style.cursor = '');
+            // 상세 폴리곤 클릭 시 팝업
+            map.on('click', 'heritage-polygon', (e) => {
+                const props = e.features[0].properties;
+                const name = props['문화유산명'] || '정보없음';
+                const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name)}`;
+                let html = `<div style="padding:5px;"><strong>${name}</strong><br><hr style="margin:5px 0;">`;
+                for(let key in props) { html += `<small>${key}: ${props[key]}</small><br>`; }
+                html += `<br><a href="${searchUrl}" target="_blank" style="color:#007bff; text-decoration:none; font-weight:bold;">구글 검색 이동 ↗</a></div>`;
+                new maplibregl.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
+            });
+
+            map.on('mouseenter', 'heritage-polygon', () => map.getCanvas().style.cursor = 'pointer');
+            map.on('mouseleave', 'heritage-polygon', () => map.getCanvas().style.cursor = '');
+
+        } catch (e) {
+            console.error("Data loading error:", e);
+        }
     });
 
-    // 필터 업데이트 (전체 레이어 적용)
     function updateFilter() {
-        const enabledCodes = [];
-        [11, 12, 13, 14, 15, 16, 18].forEach(code => {
-            if (document.getElementById(`chk-${code}`).checked) enabledCodes.push(code);
-        });
+        const enabledCodes = [11, 12, 13, 14, 15, 16, 18].filter(code => 
+            document.getElementById(`chk-${code}`).checked
+        ).map(String);
 
         const filterExp = enabledCodes.length === 0 
             ? ['==', ['get', '종목코드'], 'none'] 
             : ['in', ['get', '종목코드'], ['literal', enabledCodes]];
 
-        // 폴리곤 필터
-        map.setFilter('heritage-polygon', filterExp);
-        
-        // 점 데이터 필터 (클러스터 제외 개별 점)
-        map.setFilter('unclustered-point', ['all', ['!', ['has', 'point_count']], filterExp]);
-        
-        // 클러스터는 속성 기반 필터가 까다로워 소스 자체를 업데이트하는 것이 정석이나, 
-        // 여기선 단순 레이어 필터로 처리 (데이터 구조에 따라 동작 여부 결정됨)
-        map.setFilter('cluster-circles', ['all', ['has', 'point_count'], filterExp]);
-        map.setFilter('cluster-count', ['all', ['has', 'point_count'], filterExp]);
+        if (map.getLayer('heritage-polygon')) map.setFilter('heritage-polygon', filterExp);
+        if (map.getLayer('unclustered-point')) map.setFilter('unclustered-point', ['all', ['!', ['has', 'point_count']], filterExp]);
+        // 참고: 클러스터 레이어 필터는 소스 단계에서 제어하는 것이 더 정확하나, 성능상 레이어 필터 우선 적용
+        if (map.getLayer('cluster-circles')) map.setFilter('cluster-circles', ['all', ['has', 'point_count']]);
     }
 
-    // 검색 및 이동
     function searchHeritage() {
         const keyword = document.getElementById('search-input').value.trim();
         const resultsDiv = document.getElementById('search-results');
@@ -242,7 +237,7 @@
         resultsDiv.innerHTML = '';
         if (matches.length > 0) {
             resultsDiv.style.display = 'block';
-            matches.forEach(f => {
+            matches.slice(0, 20).forEach(f => {
                 const item = document.createElement('div');
                 item.className = 'result-item';
                 item.innerText = `📍 ${f.properties['문화유산명']}`;
@@ -264,15 +259,15 @@
         const coords = feature.geometry.coordinates;
 
         if (type === 'Point') bounds.extend(coords);
-        else if (type === 'Polygon' || type === 'MultiPolygon') {
-            const allCoords = type === 'MultiPolygon' ? coords.flat(2) : coords[0];
-            allCoords.forEach(c => bounds.extend(c));
-        }
+        else if (type === 'Polygon') coords[0].forEach(c => bounds.extend(c));
+        else if (type === 'MultiPolygon') coords.flat(2).forEach(c => bounds.extend(c));
 
         if (!bounds.isEmpty()) {
-            map.fitBounds(bounds, { padding: 80, maxZoom: 17 });
-            new maplibregl.Popup().setLngLat(bounds.getCenter())
-                .setHTML(`<strong>${feature.properties['문화유산명']}</strong>`).addTo(map);
+            map.fitBounds(bounds, { padding: 100, maxZoom: 16 });
+            setTimeout(() => {
+                new maplibregl.Popup().setLngLat(bounds.getCenter())
+                    .setHTML(`<strong>${feature.properties['문화유산명']}</strong>`).addTo(map);
+            }, 500);
         }
     }
 
@@ -282,11 +277,3 @@
 </script>
 </body>
 </html>
-
-            
-          
-
-
-
-
-
