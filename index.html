@@ -148,7 +148,7 @@ function showPopup(e) {
     };
 
     // 제외할 속성 키 목록 (데이터에 맞게 이름을 조정하세요)
-    const hiddenKeys = ['cluster', 'cluster_id', 'point_count', '위도', '경도', 'lat', 'lon', 'latitude', 'longitude'];
+    const hiddenKeys = ['cluster', 'cluster_id', 'point_count', '시도코드', '시군구코드', 'ORIG_FID', 'lat', 'lng'];
 
     let html = `<div style="padding:5px;"><strong>${name}</strong><br><hr style="margin:5px 0;">`;
     
@@ -272,6 +272,7 @@ function showPopup(e) {
 </script>
 </body>
 </html>
+
 
 
 
