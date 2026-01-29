@@ -32,104 +32,83 @@
             zoom: 7
         });
 
-        map.on('load', async () => {
-            try {
-                // 1. input1.json 로드 및 데이터 교정
-                const res = await fetch('input1.json');
-                const geojson = await res.json();
+map.on('load', async () => {
+    try {
+        const res = await fetch('input1.json');
+        const geojson = await res.json();
 
-                // [중요] 좌표가 문자열인 경우 숫자로 변환 (클러스터링 필수 조건)
-                geojson.features = geojson.features.map(f => {
-                    f.geometry.coordinates = [
-                        Number(f.geometry.coordinates[0]),
-                        Number(f.geometry.coordinates[1])
-                    ];
-                    return f;
-                });
+        // 1. 소스 설정: 클러스터링 활성화
+        map.addSource('point-source', {
+            type: 'geojson',
+            data: geojson,
+            cluster: true,
+            clusterMaxZoom: 11, // 줌 11까지만 뭉치고, 그 이상은 개별 점으로 보임
+            clusterRadius: 50
+        });
 
-                // 2. 포인트 소스 추가 (클러스터 활성화)
-                map.addSource('point-source', {
-                    type: 'geojson',
-                    data: geojson,
-                    cluster: true,
-                    clusterMaxZoom: 12,
-                    clusterRadius: 50
-                });
-
-                // 3. PMTiles 소스 추가
-                map.addSource('pmtiles-source', {
-                    type: 'vector',
-                    url: 'pmtiles://my_map.pmtiles'
-                });
-
-                // ---------------------------------------------------
-                // 레이어 추가 순서: 아래에 깔릴 것부터 추가
-                // ---------------------------------------------------
-
-                // [1] PMTiles 폴리곤 (확대 시 보임)
-                map.addLayer({
-                    id: 'pmtiles-layer',
-                    type: 'fill',
-                    source: 'pmtiles-source',
-                    'source-layer': 'input', 
-                    minzoom: 11,
-                    paint: {
-                        'fill-color': ['match', ['get', '종목코드'], '11', '#e6194b', '12', '#3cb44b', '13', '#ffe119', '14', '#4363d8', '15', '#f58231', '16', '#911eb4', '18', '#888888', '#cccccc'],
-                        'fill-opacity': 0.6
-                    }
-                });
-
-                // [2] 클러스터 원 (항상 위쪽에 보이도록 폴리곤 다음에 추가)
-                map.addLayer({
-                    id: 'cluster-circles',
-                    type: 'circle',
-                    source: 'point-source',
-                    filter: ['has', 'point_count'],
-                    maxzoom: 12,
-                    paint: {
-                        'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
-                        'circle-radius': ['step', ['get', 'point_count'], 20, 50, 25, 200, 30],
-                        'circle-stroke-width': 2,
-                        'circle-stroke-color': '#fff'
-                    }
-                });
-
-                // [3] 클러스터 숫자 (가장 위에 얹음)
-                map.addLayer({
-                    id: 'cluster-labels',
-                    type: 'symbol',
-                    source: 'point-source',
-                    filter: ['has', 'point_count'],
-                    maxzoom: 12,
-                    layout: {
-                        'text-field': '{point_count}',
-                        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                        'text-size': 12,
-                        'text-allow-overlap': true,
-                        'text-ignore-placement': true
-                    },
-                    paint: { 'text-color': '#000' }
-                });
-
-                // [4] 개별 점 (클러스터 안 된 포인트)
-                map.addLayer({
-                    id: 'unclustered-point',
-                    type: 'circle',
-                    source: 'point-source',
-                    filter: ['!', ['has', 'point_count']],
-                    maxzoom: 12,
-                    paint: {
-                        'circle-color': ['match', ['get', '종목코드'], '11', '#e6194b', '12', '#3cb44b', '13', '#ffe119', '18', '#888888', '#51bbd6'],
-                        'circle-radius': 6,
-                        'circle-stroke-width': 1.5,
-                        'circle-stroke-color': '#fff'
-                    }
-                });
-
-            } catch (e) {
-                console.error("클러스터 로드 에러:", e);
+        // 2. [줌 0 ~ 11] 클러스터 원 레이어
+        map.addLayer({
+            id: 'cluster-circles',
+            type: 'circle',
+            source: 'point-source',
+            filter: ['has', 'point_count'],
+            maxzoom: 12, // 줌 12가 넘어가면 화면에서 숨김 (상세 폴리곤에 양보)
+            paint: {
+                'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
+                'circle-radius': ['step', ['get', 'point_count'], 20, 50, 25, 200, 30],
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#fff'
             }
         });
+
+        // 3. [줌 0 ~ 11] 클러스터 숫자 레이어
+        map.addLayer({
+            id: 'cluster-labels',
+            type: 'symbol',
+            source: 'point-source',
+            filter: ['has', 'point_count'],
+            maxzoom: 12, // 줌 12가 넘어가면 숨김
+            layout: {
+                'text-field': '{point_count}',
+                'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                'text-size': 12,
+                'text-allow-overlap': true
+            }
+        });
+
+        // 4. [줌 0 ~ 11] 개별 포인트 레이어 (unclustered)
+        map.addLayer({
+            id: 'unclustered-point',
+            type: 'circle',
+            source: 'point-source',
+            filter: ['!', ['has', 'point_count']],
+            maxzoom: 12,
+            paint: {
+                'circle-color': '#e6194b',
+                'circle-radius': 6,
+                'circle-stroke-width': 1.5,
+                'circle-stroke-color': '#fff'
+            }
+        });
+
+        // 5. [줌 11 ~ 22] PMTiles 상세 폴리곤 (확대했을 때 나타남)
+        map.addLayer({
+            'id': 'pmtiles-layer',
+            'type': 'fill',
+            'source': 'pmtiles-source',
+            'source-layer': 'input', 
+            'minzoom': 11, // 줌 11보다 작을 때는 나타나지 않음
+            'paint': {
+                'fill-color': '#3cb44b',
+                'fill-opacity': 0.6
+            }
+        });
+
+    } catch (e) {
+        console.error("오류 발생:", e);
+    }
+});
     </script>
 </body>
 </html>
+
