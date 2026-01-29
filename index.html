@@ -225,7 +225,7 @@
         
         // 클러스터는 속성 기반 필터가 까다로워 소스 자체를 업데이트하는 것이 정석이나, 
         // 여기선 단순 레이어 필터로 처리 (데이터 구조에 따라 동작 여부 결정됨)
-        map.setFilter('clusters', ['all', ['has', 'point_count'], filterExp]);
+        map.setFilter('cluster-circles', ['all', ['has', 'point_count'], filterExp]);
         map.setFilter('cluster-count', ['all', ['has', 'point_count'], filterExp]);
     }
 
@@ -285,6 +285,7 @@
 
             
           
+
 
 
 
