@@ -51,8 +51,6 @@
         container: 'map',
         style: {
             "version": 8,
-            // [중요] 숫자를 표시하기 위한 폰트 설정
-            "glyphs": "https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf"
             "sources": {
                 "osm": {
                     "type": "raster",
@@ -117,7 +115,7 @@
                 maxzoom: 11,
                 layout: {
                     'text-field': '{point_count}',
-                    'text-font': ['Noto Sans Regular', 'Open Sans Regular],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
                     'text-size': 14,
                     'text-allow-overlap': true, // 숫자가 겹치더라도 강제로 보여줌
                     'text-ignore-placement': true
@@ -203,6 +201,7 @@
     </script>
 </body>
 </html>
+
 
 
 
