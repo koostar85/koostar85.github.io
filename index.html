@@ -284,52 +284,7 @@
 </html>
 
             
-            map.on('move', updateClusterNumbers);
-            map.on('moveend', updateClusterNumbers);
-            map.on('sourcedata', (e) => {
-                if (e.sourceId === 'point-source' && e.isSourceLoaded) updateClusterNumbers();
-            });
-
-        } catch (e) { console.error("Error:", e); }
-    });
-
-    // 필터링 함수
-    function updateFilter() {
-        const enabledCodes = ['11', '12', '13', '14', '15', '16', '18'].filter(c => document.getElementById(`chk-${c}`).checked);
-        const filterExp = enabledCodes.length === 0 ? ['==', ['get', '종목코드'], 'none'] : ['in', ['get', '종목코드'], ['literal', enabledCodes]];
-        if (map.getLayer('pmtiles-layer')) map.setFilter('pmtiles-layer', filterExp);
-    }
-
-    // 검색 기능
-    function searchHeritage() {
-        const keyword = document.getElementById('search-input').value.trim();
-        const resultsDiv = document.getElementById('search-results');
-        if (!keyword || !searchData) return;
-
-        const matches = searchData.features.filter(f => f.properties['문화유산명']?.includes(keyword));
-        resultsDiv.innerHTML = '';
-        if (matches.length > 0) {
-            resultsDiv.style.display = 'block';
-            matches.slice(0, 10).forEach(f => {
-                const item = document.createElement('div');
-                item.className = 'result-item';
-                item.innerText = `📍 ${f.properties['문화유산명']}`;
-                item.onclick = () => {
-                    const coords = f.geometry.type === 'Point' ? f.geometry.coordinates : f.geometry.coordinates[0][0];
-                    map.flyTo({ center: coords, zoom: 15 });
-                    resultsDiv.style.display = 'none';
-                };
-                resultsDiv.appendChild(item);
-            });
-        }
-    }
-</script>
-</body>
-</html>
-
-
-
-
+          
 
 
 
