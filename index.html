@@ -137,17 +137,45 @@
             });
         });
             // 팝업 공통 함수
-            function showPopup(e) {
-                const props = e.features[0].properties;
-                const name = props['문화유산명'] || '정보없음';
-                const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name)}`;
-                let html = `<div style="padding:5px;"><strong>${name}</strong><hr style="margin:5px 0;">`;
-                for(let key in props) { 
-                    if(!['cluster','cluster_id','point_count'].includes(key)) html += `<small>${key}: ${props[key]}</small><br>`; 
-                }
-                html += `<br><a href="${searchUrl}" target="_blank" style="color:#007bff; text-decoration:none; font-weight:bold;">구글 검색 이동 ↗</a></div>`;
-                new maplibregl.Popup().setLngLat(e.lngLat).setHTML(html).addTo(map);
+function showPopup(e) {
+    const props = e.features[0].properties;
+    const name = props['문화유산명'] || '정보없음';
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(name)}`;
+    
+    const codeMap = {
+        '11': '국보',
+        '12': '보물',
+        '13': '사적',
+        '14': '사적및명승',
+        '15': '명승',
+        '16': '천연기념물',
+        '18': '국가민속문화유산'
+    };
+
+    let html = `<div style="padding:5px;"><strong>${name}</strong><br><hr style="margin:5px 0;">`;
+    
+    for (let key in props) {
+        if (!['cluster', 'cluster_id', 'point_count'].includes(key)) {
+            let displayKey = key; // 화면에 표시할 키 이름
+            let displayValue = props[key]; // 화면에 표시할 값
+            
+            // "종목코드"인 경우 키 이름과 값을 모두 변경
+            if (key === '종목코드') {
+                displayKey = '국가지정유산 유형';
+                displayValue = codeMap[displayValue] ? `${codeMap[displayValue]} (${displayValue})` : displayValue;
             }
+            
+            html += `<small><b>${displayKey}</b>: ${displayValue}</small><br>`;
+        }
+    }
+    
+    html += `<br><a href="${searchUrl}" target="_blank" style="color:#007bff; text-decoration:none; font-weight:bold;">구글 검색 이동 ↗</a></div>`;
+
+    new maplibregl.Popup()
+        .setLngLat(e.lngLat)
+        .setHTML(html)
+        .addTo(map);
+}
 
             // 이벤트 바인딩
             map.on('click', 'unclustered-point', showPopup);
@@ -246,5 +274,6 @@
 </script>
 </body>
 </html>
+
 
 
