@@ -105,7 +105,7 @@
 
             // 레이어 추가 (클러스터/포인트/폴리곤)
             map.addLayer({
-                id: 'cluster-circles', type: 'circle', source: 'heritage-geojson', filter: ['has', 'point_count'], maxzoom: 10.5,
+                id: 'cluster-circles', type: 'circle', source: 'heritage-geojson', filter: ['has', 'point_count'], maxzoom: 11,
                 paint: {
                     'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
                     'circle-radius': ['step', ['get', 'point_count'], 18, 50, 23, 200, 30],
@@ -114,14 +114,14 @@
             });
 
             map.addLayer({
-                id: 'unclustered-point', type: 'circle', source: 'heritage-geojson', filter: ['!', ['has', 'point_count']], maxzoom: 13.5,
+                id: 'unclustered-point', type: 'circle', source: 'heritage-geojson', filter: ['!', ['has', 'point_count']], maxzoom: 13,
                 paint: {
                     'circle-color': '#007bff', 'circle-radius': 6, 'circle-stroke-width': 1, 'circle-stroke-color': '#fff'
                 }
             });
 
             map.addLayer({
-                id: 'heritage-polygon', type: 'fill', source: 'pmtiles-source', 'source-layer': 'input', minzoom: 13.5,
+                id: 'heritage-polygon', type: 'fill', source: 'pmtiles-source', 'source-layer': 'input', minzoom: 13,
                 paint: {
                     'fill-color': ['match', ['get', '종목코드'], '11','#e6194b','12','#3cb44b','13','#ffe119','14','#4363d8','15','#f58231','16','#911eb4','18','#888888','#cccccc'],
                     'fill-opacity': 0.5, 'fill-outline-color': '#ffffff'
@@ -273,6 +273,7 @@ function showPopup(e) {
 </script>
 </body>
 </html>
+
 
 
 
