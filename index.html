@@ -69,7 +69,7 @@
             "sources": { "osm": { "type": "raster", "tiles": ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"], "tileSize": 256 } },
             "layers": [{"id": "osm-layer", "type": "raster", "source": "osm"}]
         },
-        center: [127.5, 36.5], zoom: 7
+        center: [127.5, 36.5], zoom: 13
     });
 
     let searchData = null;
@@ -81,9 +81,9 @@
         const legend = document.getElementById('legend');
         
         // 줌 레벨 10 이상이면 범례 노출
-        legend.style.display = (zoom >= 10) ? 'block' : 'none';
+        legend.style.display = (zoom >= 13) ? 'block' : 'none';
         
-        let status = zoom < 10 ? " (클러스터)" : (zoom < 11.5 ? " (과도기)" : " (상세)");
+        let status = zoom < 13 ? " (클러스터)" : (zoom < 11.5 ? " (과도기)" : " (상세)");
         console.log(`📍 현재 줌: ${zoom.toFixed(2)}${status}`);
     });
 
@@ -96,7 +96,7 @@
             searchData = resFull;
 
             map.addSource('heritage-geojson', {
-                type: 'geojson', data: resPoint, cluster: true, clusterMaxZoom: 10, clusterRadius: 50
+                type: 'geojson', data: resPoint, cluster: true, clusterMaxZoom: 13, clusterRadius: 50
             });
 
             map.addSource('pmtiles-source', {
@@ -199,7 +199,7 @@ function showPopup(e) {
                         el.innerHTML = `<span>${f.properties.point_count}</span>`;
                         marker = markers[id] = new maplibregl.Marker({element: el}).setLngLat(f.geometry.coordinates);
                     }
-                    if (map.getZoom() < 11.5) {
+                    if (map.getZoom() < 13.5) {
                         if (!marker._map) marker.addTo(map);
                         newMarkers[id] = marker;
                     } else { marker.remove(); }
@@ -273,6 +273,7 @@ function showPopup(e) {
 </script>
 </body>
 </html>
+
 
 
 
