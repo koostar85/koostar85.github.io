@@ -105,7 +105,7 @@
 
             // 레이어 추가 (클러스터/포인트/폴리곤)
             map.addLayer({
-                id: 'cluster-circles', type: 'circle', source: 'heritage-geojson', filter: ['has', 'point_count'], maxzoom: 12,
+                id: 'cluster-circles', type: 'circle', source: 'heritage-geojson', filter: ['has', 'point_count'], maxzoom: 13,
                 paint: {
                     'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
                     'circle-radius': ['step', ['get', 'point_count'], 18, 50, 23, 200, 30],
@@ -273,6 +273,7 @@ function showPopup(e) {
 </script>
 </body>
 </html>
+
 
 
 
