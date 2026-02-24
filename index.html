@@ -121,7 +121,7 @@
             });
 
             map.addLayer({
-                id: 'heritage-polygon', type: 'fill', source: 'pmtiles-source', 'source-layer': 'input', minzoom: 13,
+                id: 'heritage-polygon', type: 'fill', source: 'pmtiles-source', 'source-layer': 'input', minzoom: 12.5,
                 paint: {
                     'fill-color': ['match', ['get', '종목코드'], '11','#e6194b','12','#3cb44b','13','#ffe119','14','#4363d8','15','#f58231','16','#911eb4','18','#888888','#cccccc'],
                     'fill-opacity': 0.5, 'fill-outline-color': '#ffffff'
@@ -273,6 +273,7 @@ function showPopup(e) {
 </script>
 </body>
 </html>
+
 
 
 
