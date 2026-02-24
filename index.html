@@ -96,7 +96,7 @@
             searchData = resFull;
 
             map.addSource('heritage-geojson', {
-                type: 'geojson', data: resPoint, cluster: true, clusterMaxZoom: 13, clusterRadius: 50
+                type: 'geojson', data: resPoint, cluster: true, clusterMaxZoom: 11, clusterRadius: 50
             });
 
             map.addSource('pmtiles-source', {
@@ -273,6 +273,7 @@ function showPopup(e) {
 </script>
 </body>
 </html>
+
 
 
 
