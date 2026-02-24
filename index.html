@@ -105,7 +105,7 @@
 
             // 레이어 추가 (클러스터/포인트/폴리곤)
             map.addLayer({
-                id: 'cluster-circles', type: 'circle', source: 'heritage-geojson', filter: ['has', 'point_count'], maxzoom: 12,
+                id: 'cluster-circles', type: 'circle', source: 'heritage-geojson', filter: ['has', 'point_count'], maxzoom: 11,
                 paint: {
                     'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 50, '#f1f075', 200, '#f28cb1'],
                     'circle-radius': ['step', ['get', 'point_count'], 18, 50, 23, 200, 30],
@@ -199,7 +199,7 @@ function showPopup(e) {
                         el.innerHTML = `<span>${f.properties.point_count}</span>`;
                         marker = markers[id] = new maplibregl.Marker({element: el}).setLngLat(f.geometry.coordinates);
                     }
-                    if (map.getZoom() < 13.5) {
+                    if (map.getZoom() < 11.5) {
                         if (!marker._map) marker.addTo(map);
                         newMarkers[id] = marker;
                     } else { marker.remove(); }
@@ -273,6 +273,7 @@ function showPopup(e) {
 </script>
 </body>
 </html>
+
 
 
 
