@@ -199,7 +199,7 @@ function showPopup(e) {
                         el.innerHTML = `<span>${f.properties.point_count}</span>`;
                         marker = markers[id] = new maplibregl.Marker({element: el}).setLngLat(f.geometry.coordinates);
                     }
-                    if (map.getZoom() < 11.5) {
+                    if (map.getZoom() < 10.5) {
                         if (!marker._map) marker.addTo(map);
                         newMarkers[id] = marker;
                     } else { marker.remove(); }
@@ -273,6 +273,7 @@ function showPopup(e) {
 </script>
 </body>
 </html>
+
 
 
 
